@@ -32,9 +32,22 @@ export default function App() {
         Master Operating Shell Frame
       </h1>
 
-      {/* Dashboard component */}
-      <Dashboard companyName={companyName} />
-    </div>
+      {/* Dynamic Workspace Router */}
+      {currentModule === 'dashboard' && <Dashboard companyName={companyName} />}
+
+      {currentModule === 'employees' && (
+        <div className="bg-white border border-slate-200 p-8 rounded-xl shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900">Employee Workspace Station</h2>
+          <p className="text-slate-500 text-xs mt-1">This isolated view is active and waiting for our handwritten table layout elements. </p>
+        </div>
+      )}
+
+      {currentModule !== 'dashboard' && currentModule !== 'employees' && (
+        <div className="bg-white boder border-slate-200 p-12 rounded-xl text-center shadow-sm text-slate-400 text-xs">
+          {currentModule} workspace module under structural setup.
+        </div>
+      )}
+      </div>
     </div>
   );
 }

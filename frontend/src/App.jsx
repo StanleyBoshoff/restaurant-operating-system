@@ -6,11 +6,19 @@ import Sidebar from './components/Sidebar'
 export default function App() {
   const [companyName, setCompanyname] = useState("Restaurise");
 
+  const navigationItems = [
+      { id: 'dashboard', name: 'Dashboard' },
+      { id: 'employees', name: 'Employees (Mod 1)' },
+      { id: 'documents', name: 'Documents (Mod 2)' },
+      { id: 'compliance', name: 'Foreign Compliance (Mod 3)' },
+      { id: 'setup', name: 'System Setup (Hidden)' },    
+  ];
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
 
       {/* Sidebar component */}
-      <Sidebar companyName={companyName} />
+      <Sidebar companyName={companyName} navigationItems={navigationItems} />
 
       {/* Main content area */}
       <div className="flex-1 md:pl-64 p-6">

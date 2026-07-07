@@ -23,3 +23,5 @@ The application platform levarages a modular, station-isolated micro-frontend ar
 - **State Module Switchboard**: Fully operational. The system successfully monitors active tabs and uses conditional micro-frontend selectors (`&&`) to clear the old workspace and slide the correct panel onto the floor plan instantly.
 
 - **Live Cloud Data Streaming**: Fully operational. The system successfully leverages an `async/await` pipeline inside `EmployeeDirectory.jsx` paired with automatic `useEffect` hooks to pull, verify, and render live corporate personnel data rows from the remote PostgreSQL schema table.
+
+- **Live Cloud Data Writing**: Fully operational. The system features a responsive, frosted-glass popup overlay modal (`AddEmployeeForm.jsx`) that collects user text parameters, filters out optional data values, and uses the `supabase.from().insert()` pipeline to append new database rows into PostgreSQL instantly.

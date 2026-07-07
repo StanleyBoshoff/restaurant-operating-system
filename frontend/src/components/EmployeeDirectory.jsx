@@ -1,10 +1,12 @@
 import { supabase } from '../supabaseClient';
 import React, { useState, useEffect } from 'react';
 import { UserPlus } from 'lucide-react';
+import AddEmployeeForm from './AddEmployeeForm';
 
 export default function EmployeeDirectory() {
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [showForm, setShowForm] = useState(false);
     async function fetchEmployees() {
         try {
             setLoading(true);
@@ -35,7 +37,10 @@ export default function EmployeeDirectory() {
                 </div>
 
                 {/* Active trigger button container to add staff members */}
-                <button className="flex items-center space-x-2 bg-slate-900 text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors">
+                <button 
+                  onClick={() => setShowForm(true)}
+                  className="flex items-center space-x-2 bg-slate-900 text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors"
+                >
                     <UserPlus className="w-4 h-4 text-yellow-600" />
                     <span>New Employee</span>
                 </button>
@@ -87,6 +92,14 @@ export default function EmployeeDirectory() {
 
                 </table>
             </div>
+
+            {/* FLOATING MODAL OVERLAY COMPONENT */}
+            {showForm && (
+                <AddEmployeeForm
+                onClose={() => setShowForm(false)}
+                onRefresh={fetchEmployees}
+                />
+            )}
 
         </div>
     );

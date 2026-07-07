@@ -22,7 +22,7 @@ export default function Sidebar ({ companyName, currentModule, setCurrentModule,
                 <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-1">{mockUser.branch}</p>
                 </div>
 
-                {*/ Placeholder text where buttons loop will sit shortly */}
+                {/* Placeholder text where buttons loop will sit shortly */}
                 <div className="p-4 text-xs text-slate-500">Navigation Button Loops Coming Up Next...</div>
             </div>
 

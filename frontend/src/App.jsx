@@ -5,6 +5,8 @@ import Sidebar from './components/Sidebar'
 
 export default function App() {
   const [companyName, setCompanyname] = useState("Restaurise");
+  const [currentModule, setCurrentModule] = useState('dashboard');
+
 
   const navigationItems = [
       { id: 'dashboard', name: 'Dashboard' },
@@ -18,7 +20,11 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 flex">
 
       {/* Sidebar component */}
-      <Sidebar companyName={companyName} navigationItems={navigationItems} />
+      <Sidebar 
+      companyName={companyName} 
+      navigationItems={navigationItems}
+      currentModule={currentModule}
+      setCurrentModule={setCurrentModule} />
 
       {/* Main content area */}
       <div className="flex-1 md:pl-64 p-6">

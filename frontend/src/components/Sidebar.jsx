@@ -1,7 +1,7 @@
 import React from 'react';
 import { LogOut } from 'lucide-react';
 
-export default function Sidebar ({ companyName, navigationItems }) {
+export default function Sidebar ({ companyName, navigationItems, currentModule, setCurrentModule }) {
     // Hardcoded for user UI visualization phase
     const mockUser = { name: "Stanley Boshoff", role: "General Manager", branch: "Centurion Central" };
 
@@ -24,20 +24,30 @@ export default function Sidebar ({ companyName, navigationItems }) {
 
                 {/* Menu loop generating buttons */}
                 <nav className="p-3 space-y-1">
-                    {navigationItems && navigationItems.map((item) => (
+                    {navigationItems && navigationItems.map((item) => {
+                        // Check if this specific button matches the page currently in short-term memory
+                        const isActive = currentModule === item.id;
+                        
+                        return (
                         <button
                             key={item.id}
-                            className="w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors"
-                            >
-                                <span>{item.name}</span>
-                            </button>
-                    ))}
+                            onClick={() => setCurrentModule(item.id)}
+                            className={`w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                                isActive
+                                    ? 'bg-slate-800 text-yellow-600 border border-slate-700 shadow-sm'
+                                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+                            }`}
+                        >
+                            <span>{item.name}</span>
+                        </button>
+                        );
+                    })}
                 </nav>
             </div>
             {/* Sidebar Sign Out Footer Option */}
-            <div className="p-4 border-t boder-slate-800 bg-slate 950/40">
+            <div className="p-4 border-t border-slate-800 bg-slate-950/40">
             <button className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-red-950/30 hover:text-red-400 transition-colors">
-            <LogOut classname="w-4 h-4" />
+            <LogOut className="w-4 h-4" />
             <span>Sign Out</span>
             </button>
             </div>

@@ -1,27 +1,25 @@
 # Restaurise - Restaurant Operating System (ROS)
 
-A responsive, enterprise-grade cloud administrative console optimized for restaurant management operations, human resources tracking, compliance checklists, and incident reporting.
+A responsive, enterprise-grade cloud administrative console optimized for restaurant management operations, human resources tracking, labor compliance checklists, and real-time operational incident reporting.
 
 ## 🏗️ Project Architecture Layout
 
-The application platform levarages a modular, station-isolated micro-frontend architecture layout structure:
+The application platform leverages a modular, station-isolated micro-frontend architecture layout structure:
 
-- `App.jsx` - The Master Command Center
-- `src/components/Sidebar.jsx` - Left-hand administrative system navigation hub drawer control module.
-- `src/components/dashboard.jsx` - Central status command center interface viewport console display workspace.
-- `src/components/Sidebar.jsx` - Left-hand administrative system navigation hub drawer control module.
+- `src/App.jsx` - The Master Command Center (The Kitchen GM coordinating the dynamic line states).
+- `src/components/Sidebar.jsx` - Dual-state left-hand navigation hub (collapses from wide menu into a compact icon-only utility rail).
+- `src/components/Dashboard.jsx` - Management Command Center main viewport display dashboard console.
+- `src/components/EmployeeDirectory.jsx` - Personnel database panel tracking staff records and live background server connections.
+- `src/components/AddEmployeeForm.jsx` - Floating frosted-glass overlay modal popup handling database write entry operations.
 
 ## 🎨 Visual Identity Settings
 
-- **Foundations**: Cool slate grays (`bg-slate-900`, `bg-slate-50`)
-- **Highlights**: Deep corporate luxury gold-brass tones (`text-yello-600`)
+- **Structural Foundations**: Deep neutral slates and clean greys (`bg-slate-900`, `bg-slate-950`, `bg-slate-50`)
+- **Operational Highlights**: High-end corporate luxury metallic gold-brass hues (`text-yellow-600`, `bg-yellow-600`)
 
 ## ⚙️ Core Operational Workflows
 
-- **State Module Switchboard**: `App.jsx` manages the active workspace tracking using `currentModule` state memory variables. Clicking menu buttons inside `Sidebar.jsx` fires callback triggers that instantly swap the central display floor plan.
-
-- **State Module Switchboard**: Fully operational. The system successfully monitors active tabs and uses conditional micro-frontend selectors (`&&`) to clear the old workspace and slide the correct panel onto the floor plan instantly.
-
-- **Live Cloud Data Streaming**: Fully operational. The system successfully leverages an `async/await` pipeline inside `EmployeeDirectory.jsx` paired with automatic `useEffect` hooks to pull, verify, and render live corporate personnel data rows from the remote PostgreSQL schema table.
-
-- **Live Cloud Data Writing**: Fully operational. The system features a responsive, frosted-glass popup overlay modal (`AddEmployeeForm.jsx`) that collects user text parameters, filters out optional data values, and uses the `supabase.from().insert()` pipeline to append new database rows into PostgreSQL instantly.
+- **State Module Switchboard**: `App.jsx` actively monitors user selection states using `currentModule`. Clicking navigation button slots inside `Sidebar.jsx` triggers backward callbacks that clear the pass and drop the correct station onto the layout instantly using conditional short-circuits (`&&`).
+- **Dual-State Responsiveness**: Features a smart, fluid layout. Desktop viewports toggle seamlessly between wide and narrow stance footprints. Mobile viewports collapse the sidebar completely off-screen (`-translate-x-full`) and render an interactive top navigation bar with a responsive Hamburger Button trigger.
+- **Live Cloud Data Streaming (CRUD-Read)**: Connects directly via background pipelines to remote Supabase PostgreSQL servers. Leverages asynchronous `async/await` runners paired with automatic `useEffect` lifecycle hooks to fetch database arrays and render live staff rows cleanly across spreadsheet column frameworks.
+- **Cloud Transaction Ingestion (CRUD-Write)**: Uses a secure, overlay form modal to capture system inputs. It isolates local input states (`formData`), filters optional data columns, and pipes form data records up to the server using the `supabase.from().insert()` transaction framework.

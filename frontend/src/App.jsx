@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-//We fetch our standalone components
+//Fetch standalone components
 import Dashboard from './components/Dashboard';
 import Sidebar from './components/Sidebar';
 import EmployeeDirectory from './components/EmployeeDirectory';
+
+import {
+  users, FileText, Globe, ShieldAlert, BarChart3, Settings
+} from 'lucide-react';
 
 export default function App() {
   const [companyName, setCompanyname] = useState("Restaurise");

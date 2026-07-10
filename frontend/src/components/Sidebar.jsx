@@ -67,18 +67,24 @@ export default function Sidebar ({ companyName, navigationItems, currentModule, 
                             }`}
                             title={item.name}
                         >
-                            {/**/}
-                            <span>{item.name}</span>
+                            {/* Visual Symbol Indicator Dot */}
+                            <span className={`w-2 h-2 min-w-2 rounded-full shrink-0 ${isActive ? 'bg-yellow-600' : 'bg-slate-600'}`}></span>
+
+                            {/* 💡 Only render the text labels if the sidebar is fully open! */}
+                            {sidebarOpen && <span className="truncate text-slate-200">{item.name}</span>}
                         </button>
                         );
                     })}
                 </nav>
             </div>
+
             {/* Sidebar Sign Out Footer Option */}
-            <div className="p-4 border-t border-slate-800 bg-slate-950/40">
-            <button className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm text-slate-400 hover:bg-red-950/30 hover:text-red-400 transition-colors">
-            <LogOut className="w-4 h-4" />
-            <span>Sign Out</span>
+            <div className="p-4 border-t border-slate-800 bg-slate-950/40 overflow-hidden">
+            <button className={`w-full flex items-center rounded-lg text-sm text-slate-400 hover:bg-red-950/30 hover:text-red-400 transition-colors ${
+                sidebarOpen ?  'space-x-3 px-3 py-2 justify-start' : 'p-2 justify-center'
+            }`}>
+                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                {sidebarOpen && <span>Sign Out</span>}
             </button>
             </div>
         </aside>

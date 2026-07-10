@@ -11,7 +11,9 @@ import { supabase } from './supabaseClient';
 
 export default function App() {
   const [companyName, setCompanyname] = useState("Restaurise");
-  const [currentModule, setCurrentModule] = useState('dashboard');
+  const [currentModule, setCurrentModule] = useState(() => {
+    return localStorage.getItem('active_ros_module') || 'dashboard';
+  });
   
   const [dbRoles, setDbRoles] = useState([]);    // Short-term memory array tray to hold our live database roles list
   // Fetch Roles
@@ -42,6 +44,10 @@ export default function App() {
       { id: 'compliance', name: 'Foreign Compliance (Mod 3)' },
       { id: 'setup', name: 'System Setup (Hidden)' },    
   ];
+
+  React.useEffect(() => {
+    localStorage.setItem('active_ros_module', currentModule);
+  }, [currentModule]);
 
     return (
     <div className="min-h-screen bg-slate-50 flex overflow-x-hidden">

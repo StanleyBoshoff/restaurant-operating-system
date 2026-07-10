@@ -38,11 +38,11 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navigationItems = [
-      { id: 'dashboard', name: 'Dashboard' },
-      { id: 'employees', name: 'Employees (Mod 1)' },
-      { id: 'documents', name: 'Documents (Mod 2)' },
-      { id: 'compliance', name: 'Foreign Compliance (Mod 3)' },
-      { id: 'setup', name: 'System Setup (Hidden)' },    
+      { id: 'dashboard', name: 'Dashboard', icon: BarChart3 },
+      { id: 'employees', name: 'Employees (Mod 1)', icon: Users },
+      { id: 'documents', name: 'Documents (Mod 2)', icon: FileText },
+      { id: 'compliance', name: 'Foreign Compliance (Mod 3)', icon: Globe },
+      { id: 'setup', name: 'System Setup (Hidden)', icon: Settings },    
   ];
 
   React.useEffect(() => {

@@ -54,39 +54,51 @@ export default function Sidebar ({ companyName, navigationItems, currentModule, 
                     {navigationItems && navigationItems.map((item) => {
                         const isActive = currentModule === item.id;
                         
+                        const IconComponent = item.icon;
+                        
                         return (
                         <button
                             key={item.id}
                             onClick={() => setCurrentModule(item.id)}
-                            className={`w-full flex items-center rounded-lg text-sm font-medium transition-colors ${
-                                sidebarOpen ? 'px-3 py-2.5 space-x-3 justify-start' : 'p-2.5 justify-center'
+                            className={`w-full flex items-center rounded-lg text-sm font-medium transition-all duration-150 border cursor-pointer ${
+                                /* 📱 Desktop Stance padding layout switches */
+                                sidebarOpen 
+                                    ? 'px-3 py-2.5 space-x-3 justify-start' 
+                                    : 'p-2.5 justify-center'
                             } ${
                                 isActive
-                                    ? 'bg-slate-800 text-yellow-600 border border-slate-700 shadow-sm'
-                                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+                                    ? 'bg-slate-800 text-yellow-600 border-slate-700 shadow-sm'
+                                    : 'text-slate-400 border-transparent hover:bg-slate-800/60 hover:text-slate-100'
                             }`}
-                            title={item.name}
+                            title={item.name} // Gives a clean hover tooltip text on slim mode
                         >
-                            {/* Visual Symbol Indicator Dot */}
-                            <span className={`w-2 h-2 min-w-2 rounded-full shrink-0 ${isActive ? 'bg-yellow-600' : 'bg-slate-600'}`}></span>
-
-                            {/* 💡 Only render the text labels if the sidebar is fully open! */}
+                            {IconComponent && (
+                                <IconComponent 
+                                    className={`w-5 h-5 shrink-0 transition-colors ${
+                                        isActive ? 'text-yellow-600' : 'text-slate-400'
+                                    }`} 
+                                />
+                            )}
+                            
+                            {/* Hide text words if the menu rail contracts into an icon column */}
                             {sidebarOpen && <span className="truncate text-slate-200">{item.name}</span>}
                         </button>
                         );
                     })}
                 </nav>
+
             </div>
 
             {/* Sidebar Sign Out Footer Option */}
             <div className="p-4 border-t border-slate-800 bg-slate-950/40 overflow-hidden">
-            <button className={`w-full flex items-center rounded-lg text-sm text-slate-400 hover:bg-red-950/30 hover:text-red-400 transition-colors ${
-                sidebarOpen ?  'space-x-3 px-3 py-2 justify-start' : 'p-2 justify-center'
-            }`}>
-                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                {sidebarOpen && <span>Sign Out</span>}
-            </button>
+                <button className={`w-full flex items-center rounded-lg text-sm text-slate-400 hover:bg-red-950/30 hover:text-red-400 transition-colors cursor-pointer ${
+                    sidebarOpen ? 'px-3 py-2 space-x-3 justify-start' : 'p-2.5 justify-center'
+                }`}>
+                    <LogOut className="w-5 h-5 shrink-0" />
+                    {sidebarOpen && <span>Sign Out</span>}
+                </button>
             </div>
+
         </aside>
     );
 }

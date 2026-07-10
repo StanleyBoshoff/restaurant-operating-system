@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { UserPlus } from 'lucide-react';
 import AddEmployeeForm from './AddEmployeeForm';
 
-export default function EmployeeDirectory() {
+export default function EmployeeDirectory({ dbRoles }) {
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
@@ -98,6 +98,7 @@ export default function EmployeeDirectory() {
                 <AddEmployeeForm
                 onClose={() => setShowForm(false)}
                 onRefresh={fetchEmployees}
+                dbRoles={dbRoles}
                 />
             )}
 

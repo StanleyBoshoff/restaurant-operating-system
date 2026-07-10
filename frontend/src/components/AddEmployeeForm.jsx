@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Save } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
-export default function AddEmployeeForm({ onClose, onRefresh }) {
+export default function AddEmployeeForm({ onClose, onRefresh, dbRoles }) {
 
     const [formData, setFormData] = useState({
         first_name: '',
@@ -40,13 +40,13 @@ export default function AddEmployeeForm({ onClose, onRefresh }) {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
 
             {/* Floating Popup Card Surface */}
-            <div className="bg-white rounded-x1 shadow-x1 w-full max-w-md border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
 
                 {/* Form Title */}
                 <div className="bg-slate-50 px-4 py-4 border-b border-slate-200 flex items-center justify-between">
                     <h3 className="font-bold text-slate-900 text-sm">Add New Personnel Profile</h3>
-                    <button onclick={onClose} classname="p-1 rounded text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors">
-                        <x className="w-4 h-4" />
+                    <button onClick={onClose} className="p-1 rounded text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors">
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
 
@@ -54,7 +54,7 @@ export default function AddEmployeeForm({ onClose, onRefresh }) {
                 <form onSubmit={handleSubmit} className="p-4 space-y-3">
 
                     <div>
-                        <label className="Block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">First Name</label>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">First Name</label>
                         <input
                           type="text"
                           required
@@ -65,7 +65,7 @@ export default function AddEmployeeForm({ onClose, onRefresh }) {
                     </div>
 
                     <div>
-                        <label className="Block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Last Name / Surname</label>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Last Name / Surname</label>
                         <input
                           type="text"
                           required
@@ -75,20 +75,29 @@ export default function AddEmployeeForm({ onClose, onRefresh }) {
                         />
                     </div>
 
+                                        {/*  INSERT THIS NEW SELECT BLOCK: */}
                     <div>
-                        <label className="Block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Role / Job Title</label>
-                        <input
-                          type="text"
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Role / Job Title</label>
+                        <select 
                           required
-                          placeholder="e.g. Waitron, Sous Chef, Bartender"
                           value={formData.role}
                           onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                          className="w-full border border-slate-200 px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:border-yellow-600 bg-slate-50"
-                        />
+                          className="w-full border border-slate-200 px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:border-yellow-600 bg-slate-50 text-slate-800"
+                        >
+                          <option value="">-- Select Official Dynamic Position --</option>
+                          
+                          {/* Loop over our live database roles table array records! */}
+                          {dbRoles && dbRoles.map((roleObj) => (
+                            <option key={roleObj.role_name} value={roleObj.role_name}>
+                              {roleObj.role_name} ({roleObj.classification})
+                            </option>
+                          ))}
+                        </select>
                     </div>
 
+
                     <div>
-                        <label className="Block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch Assignment</label>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch Assignment</label>
                         <input
                           type="text"
                           required
@@ -100,7 +109,7 @@ export default function AddEmployeeForm({ onClose, onRefresh }) {
                     </div>
 
                     <div>
-                        <label className="Block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">SA ID Number (Optional)</label>
+                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">SA ID Number (Optional)</label>
                         <input
                           type="text"
                           maxLength="13"
@@ -122,7 +131,7 @@ export default function AddEmployeeForm({ onClose, onRefresh }) {
                         <button
                           type="submit"
                           disabled={isSubmitting}
-                          className="flex items-center space-x-2 bg-slate-900 text-white text-xs font-medium px-4 py-1.5 rounded-lg hover:bg-slate-800 transition colors disabled:opacity-50"
+                          className="flex items-center space-x-2 bg-slate-900 text-white text-xs font-medium px-4 py-1.5 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
                           >
                             <Save className="w-3.5 h-3.5 text-yellow-600" />
                             <span>{isSubmitting ? "Saving..." : "Save Employee"}</span>

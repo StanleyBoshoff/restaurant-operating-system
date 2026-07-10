@@ -1,16 +1,37 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 //Fetch standalone components
 import Dashboard from './components/Dashboard';
 import Sidebar from './components/Sidebar';
 import EmployeeDirectory from './components/EmployeeDirectory';
 
 import {
-  users, FileText, Globe, ShieldAlert, BarChart3, Settings
+  Users, FileText, Globe, ShieldAlert, BarChart3, Settings
 } from 'lucide-react';
+import { supabase } from './supabaseClient';
 
 export default function App() {
   const [companyName, setCompanyname] = useState("Restaurise");
   const [currentModule, setCurrentModule] = useState('dashboard');
+  
+  const [dbRoles, setDbRoles] = useState([]);    // Short-term memory array tray to hold our live database roles list
+  // Fetch Roles
+  async function fetchDbRoles() {
+    try {
+      const { data, error } = await supabase
+        .from('roles')
+        .select('*');
+
+      if (error) throw error;
+      setDbRoles( data || []);
+    } catch(error) {
+      console.error("Failed to load roles shelf data:", error.message);
+    }
+  }
+
+  //trigger roles fetch runner
+  useEffect(() => {
+    fetchDbRoles();
+  }, []);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -78,7 +99,9 @@ export default function App() {
         <main className="p-4 md:p-6 max-w-7xl w-full mx-auto flex-1">
           {currentModule === 'dashboard' && <Dashboard companyName={companyName} />}
           
-          {currentModule === 'employees' && <EmployeeDirectory />}
+          {currentModule === 'employees' && (
+            <EmployeeDirectory dbRoles={dbRoles} />
+          )}
 
           {currentModule !== 'dashboard' && currentModule !== 'employees' && (
             <div className="bg-white border border-slate-200 p-12 rounded-xl text-center shadow-xs text-slate-400 text-xs italic">

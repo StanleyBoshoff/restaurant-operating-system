@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
-export default function AddEmployeeForm({ onClose, onRefresh, dbRoles }) {
+export default function AddEmployeeForm({ onClose, onRefresh, dbRoles, editingEmployee }) {
 
     const [formData, setFormData] = useState({
         first_name: '',
@@ -13,28 +13,52 @@ export default function AddEmployeeForm({ onClose, onRefresh, dbRoles }) {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // --- PRE-FILL IN EDIT MODE ---
+    useEffect(() => {
+        if (editingEmployee) {
+            setFormData({
+                first_name: editingEmployee.first_name || '',
+                last_name: editingEmployee.last_name ||'',
+                role: editingEmployee.role || '',
+                branch: editingEmployee.branch || '',
+                sa_id_number: editingEmployee.sa_id_number || ''
+            });
+        }
+    }, [editingEmployee]);
+
+
     // --- DATABASE WRITE TRIGGER ---
     async function handleSubmit(e) {
         e.preventDefault(); //Prevents the browser from reloading the page
         try {
             setIsSubmitting(true);
 
-            const { error } = await supabase
-            .from('employees')
-            .insert([formData]);
+            if (editingEmployee) {
+                const { error } = await supabase
+                  .from('employees')
+                  .update(formData)
+                  .eq('id', editingEmployee.id);
 
-            if (error) throw error;
+                  if (error) throw error;
+            } else {
 
+                const { error } = await supabase
+                    .from('employees')
+                    .insert([formData]);
+
+                if (error) throw error;
+            }
             // Success: Tell the directory pass to reload its list and close the popup
             onRefresh();
             onClose();
         } catch (error) {
-            console.error("Failed to add employee:", error.message);
-            alert("Error saving record: " + error.message);
+            console.error("Failed to process database row transaction:", error.message);
+            alert("Error saving record data updates: " + error.message);
         } finally {
             setIsSubmitting(false);
         }
     }
+
     return (
         /* Dark backdrop - Dimming the rest of the layout */
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -44,7 +68,9 @@ export default function AddEmployeeForm({ onClose, onRefresh, dbRoles }) {
 
                 {/* Form Title */}
                 <div className="bg-slate-50 px-4 py-4 border-b border-slate-200 flex items-center justify-between">
-                    <h3 className="font-bold text-slate-900 text-sm">Add New Personnel Profile</h3>
+                    <h3 className="font-bold text-slate-900 text-sm">
+                        {editingEmployee ? "Modify Personnel Profile" : "Add New Personnel Profile"}
+                        </h3>
                     <button onClick={onClose} className="p-1 rounded text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors">
                         <X className="w-4 h-4" />
                     </button>
@@ -134,7 +160,7 @@ export default function AddEmployeeForm({ onClose, onRefresh, dbRoles }) {
                           className="flex items-center space-x-2 bg-slate-900 text-white text-xs font-medium px-4 py-1.5 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
                           >
                             <Save className="w-3.5 h-3.5 text-yellow-600" />
-                            <span>{isSubmitting ? "Saving..." : "Save Employee"}</span>
+                            <span>{isSubmitting ? "Saving..." : editingEmployee ? "Update Changes" : "Save Employee"}</span>
                           </button>
                     </div>
 

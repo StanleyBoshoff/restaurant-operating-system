@@ -7,6 +7,7 @@ export default function EmployeeDirectory({ dbRoles }) {
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
+    const [editingEmployee, setEditingEmployee] = useState(null);
     async function fetchEmployees() {
         try {
             setLoading(true);
@@ -114,7 +115,17 @@ export default function EmployeeDirectory({ dbRoles }) {
                                     <td className="p-4 font-mono text-slate-400 text-xs tracking-wider">
                                         {emp.sa_id_number || 'N/A'}
                                     </td>
-                                    <td className="p-4 text-right">
+                                    <td className="p-4 text-right space-x-2">
+                                        <button
+                                          onClick={() => {
+                                            setEditingEmployee(emp);
+                                            setShowForm(true);
+                                          }}
+                                          className="text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg px-2.5 py-1 transition-colors sursor-pointer"
+                                        >
+                                            Edit                                            
+                                        </button>
+                                   
                                         <button
                                           onClick={() => handleDeleteEmployee(emp.id, `${emp.first_name} ${emp.last_name}`)}
                                           className="text-xs font-semibold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg px-2.5 py-1 transition-colors cursor-pointer"
@@ -134,9 +145,13 @@ export default function EmployeeDirectory({ dbRoles }) {
             {/* FLOATING MODAL OVERLAY COMPONENT */}
             {showForm && (
                 <AddEmployeeForm
-                onClose={() => setShowForm(false)}
+                onClose={() => {
+                    setShowForm(false);
+                    setEditingEmployee(null);
+                }}
                 onRefresh={fetchEmployees}
                 dbRoles={dbRoles}
+                editingEmployee={editingEmployee}
                 />
             )}
 

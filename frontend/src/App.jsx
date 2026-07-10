@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import Dashboard from './components/Dashboard';
 import Sidebar from './components/Sidebar';
 import EmployeeDirectory from './components/EmployeeDirectory';
+import DocumentTracker from './components/DocumentTracker';
 
 import {
   Users, FileText, Globe, ShieldAlert, BarChart3, Settings
@@ -104,10 +105,9 @@ export default function App() {
         {/* 4. Active Workspace Views Container Pass */}
         <main className="p-4 md:p-6 max-w-7xl w-full mx-auto flex-1">
           {currentModule === 'dashboard' && <Dashboard companyName={companyName} />}
-          
-          {currentModule === 'employees' && (
-            <EmployeeDirectory dbRoles={dbRoles} />
-          )}
+          {currentModule === 'employees' && (<EmployeeDirectory dbRoles={dbRoles} />)}
+          {currentModule === 'documents' && <DocumentTracker />}
+
 
           {currentModule !== 'dashboard' && currentModule !== 'employees' && (
             <div className="bg-white border border-slate-200 p-12 rounded-xl text-center shadow-xs text-slate-400 text-xs italic">

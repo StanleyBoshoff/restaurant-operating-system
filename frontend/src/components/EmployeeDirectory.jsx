@@ -21,6 +21,35 @@ export default function EmployeeDirectory({ dbRoles }) {
             setLoading(false);
         }
     }
+
+    // Slice a record from the DB
+    async function handleDeleteEmployee(employeeId, employeeName) {
+        // Confirm Delete
+        const confirmDelete = window.confirm(`Are you absolutely sure you want to remove ${employeeName} from the database?`);
+
+        if (!confirmDelete) return; // Stop immediately if Pressed cancel!
+
+        try {
+            setLoading(true);
+
+            // Delete employee from database
+            const { error } = await supabase
+              .from('employees')
+              .delete()
+              .eq('id', employeeId);
+
+            if (error) throw error;
+
+            // Success: Refresh Employee DB
+            fetchEmployees();
+
+        } catch (error) {
+            console.error("Failed to delete record:", error.message);
+            alert("Error deleting employee profile: " + error.message);
+        } finally {
+            setLoading(false);
+        }
+    }
     
     useEffect(() => {
         fetchEmployees();
@@ -55,7 +84,8 @@ export default function EmployeeDirectory({ dbRoles }) {
                             <th className="p-4">Full Name</th>
                             <th className="p-4">Role Assignment</th>
                             <th className="p-4">Branch Location</th>
-                            <th className="p-4">SA ID Number</th>                        
+                            <th className="p-4">SA ID Number</th> 
+                            <th className="p-4 text-right">Actions</th>                       
                         </tr>
                     </thead>
 
@@ -83,7 +113,15 @@ export default function EmployeeDirectory({ dbRoles }) {
                                     <td className="p-4 text-slate-600">{emp.branch}</td>
                                     <td className="p-4 font-mono text-slate-400 text-xs tracking-wider">
                                         {emp.sa_id_number || 'N/A'}
-                                    </td>                                    
+                                    </td>
+                                    <td className="p-4 text-right">
+                                        <button
+                                          onClick={() => handleDeleteEmployee(emp.id, `${emp.first_name} ${emp.last_name}`)}
+                                          className="text-xs font-semibold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg px-2.5 py-1 transition-colors cursor-pointer"
+                                        >
+                                            Delete
+                                        </button>
+                                    </td>                                 
                                 </tr>
                             ))
                         )}

@@ -11,6 +11,9 @@ The application platform leverages a modular, station-isolated micro-frontend ar
 - `src/components/Dashboard.jsx` - Management Command Center main viewport display dashboard console.
 - `src/components/EmployeeDirectory.jsx` - Personnel database panel tracking staff records and live background server connections.
 - `src/components/AddEmployeeForm.jsx` - Floating frosted-glass overlay modal popup handling database write entry operations.
+  // SLICE THIS INTO YOUR README.md UNDER THE EmployeeDirectory.jsx ARCHITECTURE ROW
+- `src/components/EmployeeDirectory.jsx` - Personnel database panel tracking staff records and live background server connections.
+- `src/components/EmployeeCanvasProfile.jsx` - The Master Clipboard Workspace panel hosting context-isolated employee detail sub-tabs.
 
 ## 🎨 Visual Identity Settings
 
@@ -31,3 +34,5 @@ The application platform leverages a modular, station-isolated micro-frontend ar
 * **Dynamic Icon Rail Mapping**: Completed. Replaced temporary placeholder bullet primitives inside `Sidebar.jsx` with full object-destructured `lucide-react` icon components passed down via navigation array props. The button loop dynamically renders matching symbols and handles contextual geometric spacing alignment variables depending on wide or collapsed workspace view tracking configurations.
 * `src/components/DocumentTracker.jsx` - Isolated digital vault console module handling file cloud bucket retrieval streams.
 * **Real-Time Roster Filtering**: Completed. Wired localized text-tracking state inputs (`searchTerm`) into `EmployeeDirectory.jsx`. Re-routed data mapping channels through a localized `.filter()` array queue to intercept database cache arrays, enabling instantaneous, low-latency client-side query matches on worker names and roles without triggering remote network calls.
+  // APPEND THIS DIRECTLY TO THE BOTTOM OF YOUR README.md FILE
+* **Master Clipboard Canvas Context (Read/Toggle)**: Fully operational. Table row selections inside `EmployeeDirectory.jsx` dispatch row objects to a centralized `activeEmployeeCanvas` state hook. This action clears the primary staff listing table view from the pass, instantly mounting a high-focus single-profile staging container with built-in cache-clearing escape routes ("Return to Directory").

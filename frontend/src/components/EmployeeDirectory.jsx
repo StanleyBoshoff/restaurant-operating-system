@@ -8,6 +8,7 @@ export default function EmployeeDirectory({ dbRoles }) {
     const [loading, setLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
     async function fetchEmployees() {
         try {
             setLoading(true);
@@ -56,6 +57,13 @@ export default function EmployeeDirectory({ dbRoles }) {
         fetchEmployees();
     }, []);
 
+    const filteredEmployees = employees.filter((emp) => {
+        const fullName = `${emp.first_name} ${emp.last_name}` .toLowerCase();
+        const searchMatch = searchTerm.toLowerCase();
+
+        return fullName.includes(searchMatch) || emp.role.toLowerCase().includes(searchMatch);
+    });
+
     return (
         <div className="space-y-4">
 
@@ -74,6 +82,17 @@ export default function EmployeeDirectory({ dbRoles }) {
                     <UserPlus className="w-4 h-4 text-yellow-600" />
                     <span>New Employee</span>
                 </button>
+            </div>
+
+            {/* LIVE SEARCH BAR UTILITY INPUT */}
+            <div className="w-full max-w-md bg-white border border-slate-200 rounded-xl p-2 shadow-2xs">
+                <input
+                    type="text"
+                    placeholder="🔍 Search profiles by name or role title..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-100 rounded-lg focus:outline-none focus:border-yellow-600 text-slate-800"
+                />
             </div>
 
             {/* 2.  LIVE DATA VIEW TABLE FRAMEWORK */}
@@ -105,7 +124,7 @@ export default function EmployeeDirectory({ dbRoles }) {
                             </td>
                         </tr>
                         ) : (
-                            employees.map((emp) => (
+                            filteredEmployees.map((emp) => (
                                 <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
                                     <td className="p-4 font-medium text-slate-900">
                                         {emp.first_name} {emp.last_name}

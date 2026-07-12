@@ -2,12 +2,27 @@ import { supabase } from '../supabaseClient';
 import React, { useState, useEffect } from 'react';
 import { UserPlus } from 'lucide-react';
 import AddEmployeeForm from './AddEmployeeForm';
+import EmployeeProfile from './EmployeeProfile';
 
 export default function EmployeeDirectory() {
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [activeEmployeeCanvas, setActiveEmployeeCanvas] = useState(null);
+    const [dbRoles, setDbRoles] = useState([]);    // Short-term memory array tray to hold our live database roles list
+  // Fetch Roles
+  async function fetchDbRoles() {
+    try {
+      const { data, error } = await supabase
+        .from('roles')
+        .select('*');
+
+      if (error) throw error;
+      setDbRoles( data || []);
+    } catch(error) {
+      console.error("Failed to load roles shelf data:", error.message);
+    }
+  }
     async function fetchEmployees() {
         try {
             setLoading(true);
@@ -25,6 +40,7 @@ export default function EmployeeDirectory() {
     
     useEffect(() => {
         fetchEmployees();
+        fetchDbRoles();
     }, []);
 
     return (
@@ -101,20 +117,11 @@ export default function EmployeeDirectory() {
             </div>
         </>
     ) : (
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            {/* WORKSPACE PREP STATION WILL SIT HERE */}
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-slate-900">
-                    Canvas Profile: {activeEmployeeCanvas.first_name} {activeEmployeeCanvas.last_name}
-                </h3>
-                <button 
-                    onClick={() => setActiveEmployeeCanvas(null)}
-                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-md"
-                >
-                    Return to Directory
-                </button>
-            </div>
-        </div>
+        <EmployeeProfile
+            employee={activeEmployeeCanvas}
+            onClose={() => setActiveEmployeeCanvas(null)}   
+            dbRoles={dbRoles}     
+        />
     )}
 
     {/* FLOATING MODAL OVERLAY COMPONENT */}
@@ -122,6 +129,7 @@ export default function EmployeeDirectory() {
         <AddEmployeeForm
             onClose={() => setShowForm(false)}
             onRefresh={fetchEmployees}
+            dbRoles={dbRoles}
         />
     )}
 

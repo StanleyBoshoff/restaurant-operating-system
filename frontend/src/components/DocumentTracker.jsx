@@ -13,7 +13,7 @@ export default function DocumentTracker() {
 
                 {/* Upload action Button */}
                 <button className="flex items-center space-x-2 bg-slate-900 text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
-                    <FilePlus classname="w-4 h-4 text-yello-600" />
+                    <FilePlus className="w-4 h-4 text-yello-600" />
                     <span>Upload new Document</span>
                 </button>
             </div>

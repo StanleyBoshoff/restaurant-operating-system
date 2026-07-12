@@ -15,26 +15,6 @@ export default function App() {
   const [currentModule, setCurrentModule] = useState(() => {
     return localStorage.getItem('active_ros_module') || 'dashboard';
   });
-  
-  const [dbRoles, setDbRoles] = useState([]);    // Short-term memory array tray to hold our live database roles list
-  // Fetch Roles
-  async function fetchDbRoles() {
-    try {
-      const { data, error } = await supabase
-        .from('roles')
-        .select('*');
-
-      if (error) throw error;
-      setDbRoles( data || []);
-    } catch(error) {
-      console.error("Failed to load roles shelf data:", error.message);
-    }
-  }
-
-  //trigger roles fetch runner
-  useEffect(() => {
-    fetchDbRoles();
-  }, []);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -105,7 +85,7 @@ export default function App() {
         {/* 4. Active Workspace Views Container Pass */}
         <main className="p-4 md:p-6 max-w-7xl w-full mx-auto flex-1">
           {currentModule === 'dashboard' && <Dashboard companyName={companyName} />}
-          {currentModule === 'employees' && (<EmployeeDirectory dbRoles={dbRoles} />)}
+          {currentModule === 'employees' && (<EmployeeDirectory />)}
           {currentModule === 'documents' && <DocumentTracker />}
 
 

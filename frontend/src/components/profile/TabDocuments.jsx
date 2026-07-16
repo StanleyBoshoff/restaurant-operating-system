@@ -171,7 +171,6 @@ export default function TabDocuments({ employee }) {
         console.log("=============================================");
     };
 
-
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-start border-b border-slate-100 pb-4">

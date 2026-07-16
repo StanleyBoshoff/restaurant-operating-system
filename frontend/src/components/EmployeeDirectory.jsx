@@ -8,7 +8,20 @@ export default function EmployeeDirectory() {
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
-    const [activeEmployeeCanvas, setActiveEmployeeCanvas] = useState(null);
+    
+    const [activeEmployeeCanvas, setActiveEmployeeCanvas] = useState(() => {
+        const savedProfile = localStorage.getItem('active_profile_canvas');
+        return savedProfile ? JSON.parse(savedProfile) : null;
+    });
+
+    useEffect(() => {
+        if (activeEmployeeCanvas) {
+            localStorage.setItem('active_profile_canvas', JSON.stringify(activeEmployeeCanvas));
+        } else {
+            localStorage.removeItem('active_profile_canvas');
+        }
+    }, [activeEmployeeCanvas]);
+
     const [dbRoles, setDbRoles] = useState([]);    // Short-term memory array tray to hold our live database roles list
   // Fetch Roles
   async function fetchDbRoles() {

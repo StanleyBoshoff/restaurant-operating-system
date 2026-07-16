@@ -4,7 +4,13 @@ import TabDocuments from "./profile/TabDocuments";
 import TabWarnings from "./profile/TabWarnings";
 
 export default function EmployeeProfile({ employee, onClose, dbRoles}) {
-    const [activeTab, setActiveTab] = useState('details');
+    const [activeTab, setActiveTab] = useState(() => {
+        return localStorage.getItem('active_profile_tab') || 'details';
+    });
+    
+    React.useEffect(() => {
+        localStorage.setItem('active_profile_tab', activeTab);
+    }, [activeTab]);
 
     const tabs = [
         { id: 'details', label: 'Details' },

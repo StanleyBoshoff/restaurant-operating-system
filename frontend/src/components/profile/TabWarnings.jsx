@@ -13,6 +13,8 @@ export default function TabWarnings({ employee }) {
   const [description, setDescription] = useState("");
   const [issuedBy, setIssuedBy] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingWarningId, setEditingWarningId] = useState(null);
 
   // Fetch historical entries straight from Supabase module table
   const fetchEmployeeWarnings = async () => {
@@ -49,7 +51,7 @@ export default function TabWarnings({ employee }) {
     try {
       let uploadedPath = null;
 
-      // 1. Target the raw file object at index 0 from the FileList collection container
+      // 1. File Handling Block (retains your solid screenshot uploading engine architecture)
       if (selectedFile) {
         const targetFile = selectedFile;
         const fileExtension = targetFile.name.split(".").pop();
@@ -59,7 +61,6 @@ export default function TabWarnings({ employee }) {
           await supabase.storage
             .from("employee-files")
             .upload(uniqueFileName, targetFile, {
-              // <--- Passes raw file object, not the full collection container
               cacheControl: "3600",
               upsert: false,
             });
@@ -68,36 +69,64 @@ export default function TabWarnings({ employee }) {
         uploadedPath = storageData.path;
       }
 
-      // 2. Insert the complete compliance row metrics into the PostgreSQL table
-      const { error } = await supabase.from("employee_warnings").insert([
-        {
-          employee_id: employee.id,
+      // 2. Dynamic Structural Routing: Check if we are running an Insert or an Update transaction query
+      if (isEditing) {
+        // 🛠️ SURGICAL RE-WRITE (CRUD-Update Transaction Query)
+        const updatePayload = {
           warning_level: warningLevel,
           incident_date: incidentDate,
           description: description,
           issued_by: issuedBy,
-          file_url: uploadedPath,
-        },
-      ]);
+        };
 
-      if (error) throw error;
+        // If the manager selected a new screenshot file asset, append the newly generated storage pointer string
+        if (uploadedPath) {
+          updatePayload.file_url = uploadedPath;
+        }
 
-      // 3. Reset form states and cache reload
+        const { error: updateError } = await supabase
+          .from("employee_warnings")
+          .update(updatePayload)
+          .eq("id", editingWarningId);
+
+        if (updateError) throw updateError;
+        alert("Disciplinary record successfully modified in database.");
+      } else {
+        // 📝 TRADITIONAL MANIFEST GENERATION (CRUD-Create Transaction Insertion Array)
+        const { error: insertError } = await supabase
+          .from("employee_warnings")
+          .insert([
+            {
+              employee_id: employee.id,
+              warning_level: warningLevel,
+              incident_date: incidentDate,
+              description: description,
+              issued_by: issuedBy,
+              file_url: uploadedPath,
+            },
+          ]);
+
+        if (insertError) throw insertError;
+        alert("Incident record logged successfully.");
+      }
+
+      // 3. Reset form states, text parameters, and clear selection references
       setWarningLevel("");
       setIncidentDate("");
       setDescription("");
       setIssuedBy("");
       setSelectedFile(null);
+      setIsEditing(false);
+      setEditingWarningId(null);
 
       const fileInput = document.getElementById("warning-file-picker");
       if (fileInput) fileInput.value = "";
 
       setIsAdding(false);
-      alert("Incident record logged successfully.");
-      fetchEmployeeWarnings();
+      fetchEmployeeWarnings(); // Instantly synchronizes live UI cache
     } catch (error) {
-      console.error("Failed to write incident row:", error.message);
-      alert(`Log failed: ${error.message}`);
+      console.error("Data layer mutation failure:", error.message);
+      alert(`Transaction aborted: ${error.message}`);
     }
   };
 
@@ -153,6 +182,17 @@ export default function TabWarnings({ employee }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const startEditingRecord = (warningItem) => {
+    setWarningLevel(warningItem.warning_level);
+    setIncidentDate(warningItem.incident_date);
+    setDescription(warningItem.description);
+    setIssuedBy(warningItem.issued_by);
+
+    setEditingWarningId(warningItem.id); // Captures target row key string identifier
+    setIsEditing(true); // Flags system update routing environment
+    setIsAdding(true); // Drops open the form interface layout slider
   };
 
   return (
@@ -277,9 +317,13 @@ export default function TabWarnings({ employee }) {
           <div className="flex justify-end">
             <button
               type="submit"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer shadow-2xs"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer shadow-2xs ${
+                isEditing
+                  ? "bg-amber-600 hover:bg-amber-700 text-white"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
+              }`}
             >
-              Save Log Record
+              {isEditing ? "Update Incident Record" : "Save Log Record"}
             </button>
           </div>
         </form>
@@ -350,6 +394,28 @@ export default function TabWarnings({ employee }) {
                               warningItem.incident_date,
                             ).toLocaleDateString()}
                           </span>
+
+                          <button
+                            type="button"
+                            onClick={() => startEditingRecord(warningItem)}
+                            className="hover:text-amber-600 p-1 rounded-md hover:bg-amber-50 transition-colors cursor-pointer"
+                            title="Edit this record text data"
+                          >
+                            <svg
+                              xmlns="http://w3.org"
+                              className="h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
+                            </svg>
+                          </button>
 
                           {/* 🗑️ Targeted Delete Switch Action */}
                           <button

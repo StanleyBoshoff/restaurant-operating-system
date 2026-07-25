@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import TabDetails from "./profile/TabDetails";
 import TabDocuments from "./profile/TabDocuments";
 import TabWarnings from "./profile/TabWarnings";
+import TabLeave from './profile/TabLeave';
 
 export default function EmployeeProfile({ employee, onClose, dbRoles}) {
     const [activeTab, setActiveTab] = useState(() => {
@@ -15,6 +16,7 @@ export default function EmployeeProfile({ employee, onClose, dbRoles}) {
     const tabs = [
         { id: 'details', label: 'Details' },
         { id: 'documents', label: 'Documents' },
+        { id: 'leave', label: 'Leave' },
         { id: 'warnings', label: 'Disciplinary Details' }
     ];
 
@@ -58,6 +60,7 @@ export default function EmployeeProfile({ employee, onClose, dbRoles}) {
             <div className="pt-2">
                 {activeTab === 'details' && <TabDetails employee={employee} dbRoles={dbRoles}/>}
                 {activeTab === 'documents' && <TabDocuments employee={employee} />}
+                {activeTab === 'leave' && <TabLeave employee={employee} />}
                 {activeTab === 'warnings' && <TabWarnings employee={employee} />}
             </div>
         </div>

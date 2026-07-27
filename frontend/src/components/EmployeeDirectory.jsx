@@ -1,14 +1,16 @@
 import { supabase } from '../supabaseClient';
 import React, { useState, useEffect } from 'react';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, ClipboardList } from 'lucide-react';
 import AddEmployeeForm from './AddEmployeeForm';
 import EmployeeProfile from './EmployeeProfile';
+import EmployeeFollowUpView from './EmployeeFollowUpView';
+import TabEmployeeDashboard from './profile/TabEmployeeDashboard';
 
 export default function EmployeeDirectory() {
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
-    
+    const [activeView, setActiveView] = useState('directory');
     const [activeEmployeeCanvas, setActiveEmployeeCanvas] = useState(() => {
         const savedProfile = localStorage.getItem('active_profile_canvas');
         return savedProfile ? JSON.parse(savedProfile) : null;
@@ -58,41 +60,67 @@ export default function EmployeeDirectory() {
 
     return (
         <div className="space-y-4">
-            {!activeEmployeeCanvas ? (
-                <>
-
-            {/* 1.  STATION HEADER PORT CONTROL */}
+            {/* Header - Always Visible */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-lg font-bold text-slate-900">Employee Profiles Directory</h2>
-                    <p className="text-slate-500 text-xs">Live administrative staff listings streamed directly from cloud data modules.</p>
+                    <h2 className="text-lg font-bold text-slate-900">
+                        {activeEmployeeCanvas ? `Profile: ${activeEmployeeCanvas.first_name} ${activeEmployeeCanvas.last_name}` : 'Employee Profiles Directory'}
+                    </h2>
+                    <p className="text-slate-500 text-xs">
+                        {activeEmployeeCanvas 
+                          ? `${activeEmployeeCanvas.role} - ${activeEmployeeCanvas.branch}`
+                          : 'Live administrative staff listings streamed directly from cloud data modules.'}
+                    </p>
                 </div>
 
-                {/* Active trigger button container to add staff members */}
-                <button 
-                  onClick={() => setShowForm(true)}
-                  className="flex items-center space-x-2 bg-slate-900 text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors"
-                >
-                    <UserPlus className="w-4 h-4 text-yellow-600" />
-                    <span>New Employee</span>
-                </button>
+                <div className="flex items-center space-x-2">
+                    <button
+                        onClick={() => setActiveView(activeView === 'followup' ? 'directory' : 'followup')}
+                        className={`flex items-center space-x-2 border text-xs font-medium px-4 py-2 rounded-lg transition-colors ${
+                          activeView === 'followup'
+                            ? 'bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100'
+                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        }`}
+                    >
+                        <ClipboardList className="w-4 h-4 text-yellow-600" />
+                        <span>Employee Dashboard</span>
+                    </button>
+                    {!activeEmployeeCanvas && (
+                      <button 
+                        onClick={() => setShowForm(true)}
+                        className="flex items-center space-x-2 bg-slate-900 text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors"
+                      >
+                          <UserPlus className="w-4 h-4 text-yellow-600" />
+                          <span>New Employee</span>
+                      </button>
+                    )}
+                </div>
             </div>
 
-            {/* 2.  LIVE DATA VIEW TABLE FRAMEWORK */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            {/* Content Area */}
+            {activeEmployeeCanvas ? (
+                        <EmployeeProfile
+                            employee={activeEmployeeCanvas}
+                            onClose={() => setActiveEmployeeCanvas(null)}
+                            dbRoles={dbRoles}
+                        />
+            ) : activeView === 'followup' ? (
+                <EmployeeFollowUpView onOpenEmployee={(employee) => setActiveEmployeeCanvas(employee)} />
+            ) : (
+                <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
                 <table className="w-full text-left border-collapse">
-                    
+
                     <thead>
                         <tr className="bg-slate-50 border-b border-slate-200 rounded-xl shadow-sm overflow-hidden">
                             <th className="p-4">Full Name</th>
                             <th className="p-4">Role Assignment</th>
                             <th className="p-4">Branch Location</th>
-                            <th className="p-4">SA ID Number</th>                        
+                            <th className="p-4">SA ID Number</th>
                         </tr>
                     </thead>
 
                     <tbody className="devide-y devide-slate-100 text-sm">
-                        
+
                         {loading ? (
                         <tr>
                             <td className="p-4 text-slate-500 animate-pulse italic" colSpan="4">
@@ -107,7 +135,7 @@ export default function EmployeeDirectory() {
                         </tr>
                         ) : (
                             employees.map((emp) => (
-                                <tr 
+                                <tr
                                     key={emp.id}
                                     onClick={() => setActiveEmployeeCanvas(emp)}
                                     className="hover:bg-slate-50/80 transition-colors cursor-pointer"
@@ -115,11 +143,11 @@ export default function EmployeeDirectory() {
                                     <td className="p-4 font-medium text-slate-900">
                                         {emp.first_name} {emp.last_name}
                                     </td>
-                                    <td className="p-4 text-slate-600">{emp.role}</td>                                
+                                    <td className="p-4 text-slate-600">{emp.role}</td>
                                     <td className="p-4 text-slate-600">{emp.branch}</td>
                                     <td className="p-4 font-mono text-slate-400 text-xs tracking-wider">
                                         {emp.sa_id_number || 'N/A'}
-                                    </td>                                    
+                                    </td>
                                 </tr>
                             ))
                         )}
@@ -127,25 +155,18 @@ export default function EmployeeDirectory() {
                     </tbody>
 
                 </table>
-            </div>
-        </>
-    ) : (
-        <EmployeeProfile
-            employee={activeEmployeeCanvas}
-            onClose={() => setActiveEmployeeCanvas(null)}   
-            dbRoles={dbRoles}     
-        />
-    )}
+                </div>
+            )}
 
-    {/* FLOATING MODAL OVERLAY COMPONENT */}
-    {showForm && (
-        <AddEmployeeForm
-            onClose={() => setShowForm(false)}
-            onRefresh={fetchEmployees}
-            dbRoles={dbRoles}
-        />
-    )}
+            {/* Floating Modal */}
+            {showForm && (
+                <AddEmployeeForm
+                    onClose={() => setShowForm(false)}
+                    onRefresh={fetchEmployees}
+                    dbRoles={dbRoles}
+                />
+            )}
 
-</div>
-);
+        </div>
+    );
 }

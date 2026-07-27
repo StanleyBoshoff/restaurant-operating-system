@@ -2,11 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 
 export default function TabDocuments({ employee }) {
-    const isSouthAfrican = employee?.sa_id_number && employee.sa_id_number.trim().length === 13;
+    const identityValue = (employee?.sa_id_number || '').trim();
+    const isSouthAfrican = /^\d{13}$/.test(identityValue);
+    const isForeignNational = identityValue.length > 0 && !isSouthAfrican;
 
-    const documentOptions = isSouthAfrican 
-        ? ['ID Copy', 'Tax Certificate', 'Proof of Address']
-        : ['Passport', 'Work Permit', 'Asylum Document', 'Visa'];
+    const requiredDocuments = !identityValue
+        ? []
+        : isSouthAfrican
+            ? [
+                { type: 'ID Copy', description: 'Certified copy of the South African ID' },
+                { type: 'Tax Certificate', description: 'SARS tax certificate or employment tax record' },
+                { type: 'Proof of Address', description: 'Utility bill or lease agreement' }
+            ]
+            : [
+                { type: 'Passport', description: 'Certified passport copy' },
+                { type: 'Work Permit', description: 'Valid work permit or authorization' },
+                { type: 'Visa', description: 'Valid visa or entry permit' },
+                { type: 'Tax Certificate', description: 'Tax certificate or tax compliance record' },
+                { type: 'Proof of Address', description: 'Utility bill or lease agreement' }
+            ];
+
+    const optionalDocuments = ['Employment Contract', 'Banking Details', 'Certificates', 'Licences', 'Food Safety', 'Other'];
+    const documentOptions = Array.from(new Set([...requiredDocuments.map((doc) => doc.type), ...optionalDocuments]));
 
     // Local form states
     const [documentType, setDocumentType] = useState('');
@@ -177,12 +194,46 @@ export default function TabDocuments({ employee }) {
                 <div>
                     <h4 className="text-sm font-semibold text-slate-900">Required Documentation Workspace</h4>
                     <p className="text-xs text-slate-500 mt-0.5">
-                        Classification profile: <span className="font-semibold text-slate-700">{isSouthAfrican ? 'South African Citizen (Local)' : 'Foreign National (Compliance Track)'}</span>
+                        Classification profile: <span className="font-semibold text-slate-700">
+                            {!identityValue ? 'Identity pending' : isSouthAfrican ? 'South African Citizen (Local)' : isForeignNational ? 'Foreign National (Compliance Track)' : 'Identity needs review'}
+                        </span>
                     </p>
                 </div>
                 <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-medium px-3 py-1 rounded-md">
                     ⚠️ Note: All uploaded files must be officially certified copies.
                 </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                    <h5 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Required documents checklist</h5>
+                    <span className="text-[11px] font-medium text-slate-600">
+                        {requiredDocuments.length > 0 ? `${requiredDocuments.length} required` : 'Identity needed'}
+                    </span>
+                </div>
+
+                {!identityValue ? (
+                    <div className="text-sm text-slate-600">
+                        Add an ID or passport number in the employee profile first so the system can determine the correct required documents.
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {requiredDocuments.map((doc) => {
+                            const uploaded = documentsList.some((item) => item.document_type === doc.type);
+                            return (
+                                <div key={doc.type} className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
+                                    <div>
+                                        <span className="font-medium text-slate-800 block">{doc.type}</span>
+                                        <span className="text-[11px] text-slate-500">{doc.description}</span>
+                                    </div>
+                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${uploaded ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                                        {uploaded ? 'Uploaded' : 'Pending'}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
             <form onSubmit={handleUpload} className="bg-slate-50 border border-slate-100 p-4 rounded-lg grid grid-cols-4 gap-4 items-end text-sm">

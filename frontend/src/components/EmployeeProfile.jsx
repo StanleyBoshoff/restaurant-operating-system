@@ -1,19 +1,26 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import TabDetails from "./profile/TabDetails";
 import TabDocuments from "./profile/TabDocuments";
 import TabWarnings from "./profile/TabWarnings";
 import TabLeave from './profile/TabLeave';
+import TabEmployeeDashboard from './profile/TabEmployeeDashboard'; // Import the new dashboard component
 
 export default function EmployeeProfile({ employee, onClose, dbRoles}) {
     const [activeTab, setActiveTab] = useState(() => {
         return localStorage.getItem('active_profile_tab') || 'details';
     });
+    const [currentEmployee, setCurrentEmployee] = useState(employee);
     
-    React.useEffect(() => {
+    useEffect(() => {
         localStorage.setItem('active_profile_tab', activeTab);
     }, [activeTab]);
 
+    useEffect(() => {
+        setCurrentEmployee(employee);
+    }, [employee]);
+
     const tabs = [
+        { id: 'dashboard', label: 'Dashboard' }, // Add the new dashboard tab here
         { id: 'details', label: 'Details' },
         { id: 'documents', label: 'Documents' },
         { id: 'leave', label: 'Leave' },
@@ -27,9 +34,9 @@ export default function EmployeeProfile({ employee, onClose, dbRoles}) {
             <div className="flex justify-between items-center border-b border-slate-100 pb-4">
                 <div>
                     <h3 className="text-lg font-bold text-slate-900">
-                        Profile: {employee.first_name} {employee.last_name}
+                        Profile: {currentEmployee?.first_name || employee?.first_name} {currentEmployee?.last_name || employee?.last_name}
                     </h3>
-                    <p className="text-xs text-slate-500">{employee.role} - {employee.branch}</p>
+                    <p className="text-xs text-slate-500">{currentEmployee?.role || employee?.role} - {currentEmployee?.branch || employee?.branch}</p>
                 </div>
                 <button
                     onClick={onClose}
@@ -58,10 +65,11 @@ export default function EmployeeProfile({ employee, onClose, dbRoles}) {
 
             {/* Conditional workspace sub-panel insertion point */}
             <div className="pt-2">
-                {activeTab === 'details' && <TabDetails employee={employee} dbRoles={dbRoles}/>}
-                {activeTab === 'documents' && <TabDocuments employee={employee} />}
-                {activeTab === 'leave' && <TabLeave employee={employee} />}
-                {activeTab === 'warnings' && <TabWarnings employee={employee} />}
+                {activeTab === 'dashboard' && <TabEmployeeDashboard employee={currentEmployee} onClose={onClose} />}
+                {activeTab === 'details' && <TabDetails employee={currentEmployee} dbRoles={dbRoles} onProfileUpdated={setCurrentEmployee} />}
+                {activeTab === 'documents' && <TabDocuments employee={currentEmployee} />}
+                {activeTab === 'leave' && <TabLeave employee={currentEmployee} />}
+                {activeTab === 'warnings' && <TabWarnings employee={currentEmployee} />}
             </div>
         </div>
     ); 

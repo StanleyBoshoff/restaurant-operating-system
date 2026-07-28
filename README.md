@@ -1,46 +1,316 @@
-# Restaurise - Restaurant Operating System (ROS)
+# Restaurise
 
-A responsive, enterprise-grade cloud administrative console optimized for restaurant management operations, human resources tracking, labor compliance checklists, and real-time operational incident reporting.
+## Restaurant Employee Management System (REMS)
 
-## 🏗️ Project Architecture Layout
+A modern cloud-based Employee Management System built specifically for the restaurant and hospitality industry.
 
-The application platform leverages a modular, station-isolated micro-frontend architecture layout structure:
+Restaurise centralizes employee management, scheduling, workforce administration, compliance, training, documentation and operational workflows into a single platform.
 
-- `src/App.jsx` - Global layout shell managing navigation states, mobile responsive toggles, and localized persistent tracking.
-- `src/components/Sidebar.jsx` - Dual-state left-hand navigation hub (collapses from wide menu into a compact icon-only utility rail).
-- `src/components/Dashboard.jsx` - Management Command Center main viewport display dashboard console.
-- `src/components/EmployeeDirectory.jsx` - Personnel database table handling global employee data arrays, search parameters, and localized role queries.
-- `src/components/AddEmployeeForm.jsx` - Floating frosted-glass overlay modal popup handling database write entry operations.
-- `src/components/EmployeeProfile.jsx` - Master personnel view managing active workspace sub-tabs and context navigation hooks.
-- `src/components/profile/TabDetails.jsx` - Isolated module handling secure employee profile inline data modifications.
-- `src/components/profile/TabDocuments.jsx` - Isolated digital vault view staging file storage items.
-- `src/components/profile/TabWarnings.jsx` - Isolated system layout rendering compliance records and disciplinary histories.
-- `src/components/DocumentTracker.jsx` - Isolated digital vault console module handling file cloud bucket retrieval streams.
+---
 
-## 🎨 Visual Identity Settings
+# Project Status
 
-- **Structural Foundations**: Deep neutral slates and clean greys (`bg-slate-900`, `bg-slate-950`, `bg-slate-50`)
-- **Operational Highlights**: High-end corporate luxury metallic gold-brass hues (`text-yellow-600`, `bg-yellow-600`)
+🚧 Active Development (Phase 1)
 
-## ⚙️ Core Operational Workflows
+Current focus:
 
-- **State Module Switchboard**: `App.jsx` actively monitors user selection states using `currentModule`. Clicking navigation button slots inside `Sidebar.jsx` triggers backward callbacks that clear the pass and drop the correct station onto the layout instantly using conditional short-circuits (`&&`).
-- **Dual-State Responsiveness**: Features a smart, fluid layout. Desktop viewports toggle seamlessly between wide and narrow stance footprints. Mobile viewports collapse the sidebar completely off-screen (`-translate-x-full`) and render an interactive top navigation bar with a responsive Hamburger Button trigger.
-- **Live Cloud Data Streaming (CRUD-Read)**: Connects directly via background pipelines to remote Supabase PostgreSQL servers. Leverages asynchronous `async/await` runners paired with automatic `useEffect` lifecycle hooks to fetch database arrays and render live staff rows cleanly across spreadsheet column frameworks.
-- **Cloud Transaction Ingestion (CRUD-Write)**: Uses a secure, overlay form modal to capture system inputs. It isolates local input states (`formData`), filters optional data columns, and pipes form data records up to the server using the `supabase.from().insert()` transaction framework.
-- **Dynamic Data Validation Inputs**: Completed. Upgraded text-line data input entries into a strict database-mapped `<select>` dropdown menu filter loop, preventing layout typos and ensuring personnel profiles align perfectly with company-defined position structures.
-- **Targeted Record Erasure (CRUD-Delete)**: Fully operational. Table rows inside `EmployeeDirectory.jsx` feature localized record deletion buttons that pass distinct UUID identifiers to an asynchronous `handleDeleteEmployee` function loop wrapper. The pipeline executes targeted `.delete().eq()` surgical queries to drop specific records from the PostgreSQL shelf live.
-- **Active Session Preservation (Persistence)**: Completed. Replaced standard ephemeral component state with browser-native `localStorage` initialization queues inside `App.jsx` and `EmployeeProfile.jsx`. Tapping navigational channels triggers reactive synchronization blocks that write active tracking metrics to the device's persistent cache disk, ensuring browser refreshes retain active workspace layout frames and sub-tab states.
-- **Surgical Profile Modification (CRUD-Update)**: Fully operational. Upgraded `AddEmployeeForm.jsx` into a versatile dual-state panel that intercepts incoming state components. On submission, the function checks the active state context to execute targeted database updates via the `supabase.from().update().eq()` transaction protocol cleanly.
-- **Dynamic Icon Rail Mapping**: Completed. Replaced temporary placeholder bullet primitives inside `Sidebar.jsx` with full object-destructured `lucide-react` icon components passed down via navigation array props.
-- **Real-Time Roster Filtering**: Completed. Wired localized text-tracking state inputs (`searchTerm`) into `EmployeeDirectory.jsx`. Re-routed data mapping channels through a localized `.filter()` array queue to intercept database cache arrays, enabling instantaneous client-side query matches on worker names and roles.
-- **Isolated Profile Tab Staging Workspace**: Fully operational. Built separate, modular tab panes (`TabDetails`, `TabDocuments`, `TabWarnings`) within `EmployeeProfile.jsx` to separate view logic and simplify future features.
-- **Secure Inline Core Modifiers**: Fully operational. Connected `TabDetails.jsx` directly to the Supabase database engine, transforming static listings into editable forms. It validates positions using the `dbRoles` array data structure to prevent data mismatch errors during profile edits.
-- **Private File Vault & Binary Compliance Track**: Fully operational. Implemented binary file uploads to private Supabase Storage buckets linked directly to an `employee_documents` relational tracking table. Features automated expiry warning flags (`EXPIRED` / `RENEWAL REQUIRED`) to track compliance timelines. File viewing leverages secure, temporary Signed URLs mapped directly into native HTML anchor tags to completely bypass browser pop-up blockers and ad-blockers.
-- **Targeted Vault Record Deletion**: Fully operational. Relational document records inside `TabDocuments.jsx`
-- **Private File Vault & Deletion Architecture**: Fully operational. Relational document records inside `TabDocuments.jsx` feature localized file listings paired with an explicit, dark-masked deletion warning confirmation modal. The pipeline securely handles backend asset eviction and table line drops with zero UI text bloat.
-- **Secure Incident Documentation Pipeline**: Fully operational. Upgraded `TabWarnings.jsx` to intercept binary image attachments seamlessly during disciplinary creation. The transaction pipeline streams screenshots up to a private Supabase Storage bucket (`employee-files`), captures the storage path reference inside PostgreSQL database matrices, and safely serves secure, temporary 60-second Signed URLs directly to managers to protect employee data privacy.
-- **Cascade Disciplinary Deletion Pipeline (CRUD-Delete)**: Fully operational. Configured an asynchronous transaction system inside `TabWarnings.jsx` that captures explicit delete intents. Upon execution, the framework triggers an atomic cascade: first purging the associated screenshot or binary asset directly from the secure private Supabase Storage repository, then executing a surgical PostgreSQL row-level eviction by UUID match. Restored complete data layer consistency by configuring open development RLS `DELETE` operational permissions on the server backend.
-- **Contextual Dual-State Mutation Machine (CRUD-Update)**: Fully operational. Upgraded `TabWarnings.jsx`
-- **Automated Statutory Calendar & Accrual Engine**: Fully operational. Developed an infinite, programmatic calendar matrix (`saHolidayEngine.js`) leveraging Gauss's Easter Algorithm to calculate shifting holiday cycles dynamically without third-party API dependencies. Automatically calculates the South African BCEA Sunday roll-over rule. Integrated a dual-component dashboard displaying an interactive monthly grid view alongside a rolling 30-day operational activity feed sidebar. Grid features a high-contrast dynamic high-light tracking indicator for the current operational day.
-git commit -m "feat: design updates to employee profiles, directory layouts, and dashboards"
+- Core application framework
+- Employee Management Module
+- Navigation architecture
+- Supabase database design
+- Modular system foundation
+
+---
+
+# Vision
+
+Create a scalable Restaurant Employee Management System that replaces paper files, spreadsheets and disconnected HR tools with one integrated platform.
+
+The application is designed around **modules**, allowing multiple developers to work independently while maintaining a consistent user experience.
+
+---
+
+# Technology Stack
+
+## Frontend
+
+- React
+- Vite
+- TailwindCSS
+
+## Backend
+
+- Supabase
+- PostgreSQL
+- Supabase Storage
+- Row Level Security (RLS)
+
+---
+
+# Application Architecture
+
+The application follows a modular workspace architecture.
+
+```
+Sidebar
+    ↓
+Module
+    ↓
+Overview
+    ↓
+Tabs
+    ↓
+Workspace
+```
+
+Every major module follows the same layout.
+
+Example:
+
+```
+Employees
+
+    Overview
+
+    Details
+
+    Employment
+
+    Documents
+
+    Leave
+
+    Attendance
+
+    Timesheets
+
+    Warnings
+
+    Performance
+
+    Training
+
+    Tasks
+
+    Notes
+
+    Audit Log
+```
+
+This architecture keeps navigation consistent throughout the application.
+
+---
+
+# Current Modules
+
+## Dashboard
+
+Management overview containing company-wide statistics and alerts.
+
+Status:
+
+🟡 In Development
+
+---
+
+## Employees (Module 1)
+
+The core of the application.
+
+Handles everything related to individual employees.
+
+### Tabs
+
+- Overview
+- Details
+- Employment
+- Documents
+- Leave
+- Attendance
+- Timesheets
+- Warnings
+- Performance
+- Training
+- Tasks
+- Notes
+- Audit Log
+
+Status:
+
+🟢 Active Development
+
+---
+
+## Planned Modules
+
+The following modules have been approved and the framework is being prepared.
+
+### Scheduling
+
+Manage weekly rosters, availability and shift templates.
+
+### Timesheets
+
+Employee clock-in, overtime, payroll exports and labour reporting.
+
+### Leave
+
+Leave requests, balances and approvals.
+
+### Training
+
+Courses, assessments, certificates and knowledge base.
+
+### Tasks
+
+Assign and track operational tasks.
+
+### Checklists
+
+Opening, closing and operational checklists.
+
+### Forms
+
+Digital forms including incidents, maintenance and inspections.
+
+### Health & Safety
+
+Incident management and workplace safety.
+
+### Communication
+
+Announcements, policies and internal communication.
+
+### Reports
+
+Operational and HR reporting.
+
+### Settings
+
+Company configuration.
+
+- Users
+- Roles
+- Permissions
+- Branches
+- Departments
+- Positions
+- Leave Types
+- Warning Types
+- Document Categories
+
+---
+
+# Project Structure
+
+```
+src/
+
+components/
+    Dashboard/
+    Employees/
+    Scheduling/
+    Timesheets/
+    Leave/
+    Training/
+    Tasks/
+    Checklists/
+    Forms/
+    HealthSafety/
+    Communication/
+    Reports/
+    Settings/
+
+shared/
+
+hooks/
+
+services/
+
+utils/
+```
+
+Each module is self-contained to support parallel development.
+
+---
+
+# Design Principles
+
+- Employee-first architecture
+- Modular development
+- Restaurant-specific workflows
+- Reusable components
+- Scalable database design
+- Mobile responsive
+- Multi-branch ready
+- Cloud native
+- AI-ready
+
+---
+
+# Current Development Phase
+
+## Phase 1
+
+✅ Application Shell
+
+✅ Sidebar Navigation
+
+✅ Employee Workspace
+
+✅ Supabase Integration
+
+✅ Responsive Layout
+
+🚧 Employee Module
+
+🚧 Database Expansion
+
+---
+
+# Upcoming Development
+
+- Scheduling
+- Timesheets
+- Leave Management
+- Training
+- Tasks
+- Forms
+- Checklists
+- Reports
+- Settings
+
+---
+
+# Development Standards
+
+Every new module must include:
+
+- Overview page
+- Tab-based navigation
+- Shared layout
+- Reusable components
+- Role-based permissions
+- Responsive design
+- Supabase integration
+
+---
+
+# Long-Term Goal
+
+Build the leading Restaurant Employee Management System for the hospitality industry.
+
+The system should become the single source of truth for every employee by centralizing:
+
+- Employee records
+- Documents
+- Compliance
+- Scheduling
+- Leave
+- Attendance
+- Performance
+- Training
+- Operational tasks
+- Reporting
+
+into one integrated cloud platform.

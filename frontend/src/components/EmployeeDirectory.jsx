@@ -1,49 +1,34 @@
 import { supabase } from '../supabaseClient';
 import React, { useState, useEffect } from 'react';
-import { UserPlus, ClipboardList } from 'lucide-react';
+import { UserPlus, Search, Filter, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import AddEmployeeForm from './AddEmployeeForm';
-import EmployeeProfile from './EmployeeProfile';
-import EmployeeFollowUpView from './EmployeeFollowUpView';
-import TabEmployeeDashboard from './profile/TabEmployeeDashboard';
+import SummaryCard from './common/SummaryCard';
+import StatusBadge from './common/StatusBadge';
+import ModuleWorkspaceHeader from './common/ModuleWorkspaceHeader';
 
 export default function EmployeeDirectory() {
+    const navigate = useNavigate();
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showForm, setShowForm] = useState(false);
-    const [activeView, setActiveView] = useState('directory');
-    const [activeEmployeeCanvas, setActiveEmployeeCanvas] = useState(() => {
-        const savedProfile = localStorage.getItem('active_profile_canvas');
-        return savedProfile ? JSON.parse(savedProfile) : null;
-    });
+    const [dbRoles, setDbRoles] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
 
-    useEffect(() => {
-        if (activeEmployeeCanvas) {
-            localStorage.setItem('active_profile_canvas', JSON.stringify(activeEmployeeCanvas));
-        } else {
-            localStorage.removeItem('active_profile_canvas');
+    async function fetchDbRoles() {
+        try {
+            const { data, error } = await supabase.from('roles').select('*');
+            if (error) throw error;
+            setDbRoles(data || []);
+        } catch(error) {
+            console.error("Failed to load roles:", error.message);
         }
-    }, [activeEmployeeCanvas]);
-
-    const [dbRoles, setDbRoles] = useState([]);    // Short-term memory array tray to hold our live database roles list
-  // Fetch Roles
-  async function fetchDbRoles() {
-    try {
-      const { data, error } = await supabase
-        .from('roles')
-        .select('*');
-
-      if (error) throw error;
-      setDbRoles( data || []);
-    } catch(error) {
-      console.error("Failed to load roles shelf data:", error.message);
     }
-  }
+
     async function fetchEmployees() {
         try {
             setLoading(true);
-            const { data, error } = await supabase
-            .from('employees')
-            .select('*');
+            const { data, error } = await supabase.from('employees').select('*');
             if (error) throw error;
             setEmployees(data || []);
         } catch (error) {
@@ -58,107 +43,109 @@ export default function EmployeeDirectory() {
         fetchDbRoles();
     }, []);
 
-    return (
-        <div className="space-y-4">
-            {/* Header - Always Visible */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-lg font-bold text-slate-900">
-                        {activeEmployeeCanvas ? `Profile: ${activeEmployeeCanvas.first_name} ${activeEmployeeCanvas.last_name}` : 'Employee Profiles Directory'}
-                    </h2>
-                    <p className="text-slate-500 text-xs">
-                        {activeEmployeeCanvas 
-                          ? `${activeEmployeeCanvas.role} - ${activeEmployeeCanvas.branch}`
-                          : 'Live administrative staff listings streamed directly from cloud data modules.'}
-                    </p>
-                </div>
+    const filteredEmployees = employees.filter(emp =>
+        `${emp.first_name} ${emp.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.role?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.employee_number?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-                <div className="flex items-center space-x-2">
+    return (
+        <div className="space-y-6">
+            <ModuleWorkspaceHeader
+                title="Employee Directory"
+                description="Manage and view all employee profiles and employment records."
+                icon={Users}
+                actions={
                     <button
-                        onClick={() => setActiveView(activeView === 'followup' ? 'directory' : 'followup')}
-                        className={`flex items-center space-x-2 border text-xs font-medium px-4 py-2 rounded-lg transition-colors ${
-                          activeView === 'followup'
-                            ? 'bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                        }`}
-                    >
-                        <ClipboardList className="w-4 h-4 text-yellow-600" />
-                        <span>Employee Dashboard</span>
-                    </button>
-                    {!activeEmployeeCanvas && (
-                      <button 
                         onClick={() => setShowForm(true)}
-                        className="flex items-center space-x-2 bg-slate-900 text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors"
-                      >
-                          <UserPlus className="w-4 h-4 text-yellow-600" />
-                          <span>New Employee</span>
-                      </button>
-                    )}
+                        className="flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all shadow-sm active:scale-95 shrink-0"
+                    >
+                        <UserPlus size={16} />
+                        Add New Employee
+                    </button>
+                }
+            />
+
+            <div className="flex flex-col md:flex-row gap-3">
+                <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                        type="text"
+                        placeholder="Search by name, role, or ID..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-slate-900/5 transition-all shadow-3xs placeholder:text-slate-300"
+                    />
                 </div>
+                <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-3xs active:scale-95">
+                    <Filter size={16} />
+                    Advanced Filters
+                </button>
             </div>
 
-            {/* Content Area */}
-            {activeEmployeeCanvas ? (
-                        <EmployeeProfile
-                            employee={activeEmployeeCanvas}
-                            onClose={() => setActiveEmployeeCanvas(null)}
-                            dbRoles={dbRoles}
-                        />
-            ) : activeView === 'followup' ? (
-                <EmployeeFollowUpView onOpenEmployee={(employee) => setActiveEmployeeCanvas(employee)} />
-            ) : (
-                <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                <table className="w-full text-left border-collapse">
+            <SummaryCard
+                title="Personnel Database"
+                icon={Users}
+                badge={<span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{filteredEmployees.length} TOTAL</span>}
+            >
+                <div className="overflow-x-auto -mx-4 -mb-4">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-slate-50/50 border-b border-slate-200">
+                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Employee Name</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Role Assignment</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Branch Location</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Employment Status</th>
+                                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Reference ID</th>
+                            </tr>
+                        </thead>
 
-                    <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                            <th className="p-4">Full Name</th>
-                            <th className="p-4">Role Assignment</th>
-                            <th className="p-4">Branch Location</th>
-                            <th className="p-4">SA ID Number</th>
-                        </tr>
-                    </thead>
-
-                    <tbody className="devide-y devide-slate-100 text-sm">
-
-                        {loading ? (
-                        <tr>
-                            <td className="p-4 text-slate-500 animate-pulse italic" colSpan="4">
-                                Connecting to cloud data modules...
-                            </td>
-                        </tr>
-                        ) : employees.length === 0 ? (
-                        <tr>
-                            <td className="p-4 text-slate-500 text-center italic" colSpan="4">
-                                No employee profiles found on the server.
-                            </td>
-                        </tr>
-                        ) : (
-                            employees.map((emp) => (
-                                <tr
-                                    key={emp.id}
-                                    onClick={() => setActiveEmployeeCanvas(emp)}
-                                    className="hover:bg-slate-50/80 transition-colors cursor-pointer"
-                                >
-                                    <td className="p-4 font-medium text-slate-900">
-                                        {emp.first_name} {emp.last_name}
-                                    </td>
-                                    <td className="p-4 text-slate-600">{emp.role}</td>
-                                    <td className="p-4 text-slate-600">{emp.branch}</td>
-                                    <td className="p-4 font-mono text-slate-400 text-xs tracking-wider">
-                                        {emp.sa_id_number || 'N/A'}
+                        <tbody className="divide-y divide-slate-100 text-[13px]">
+                            {loading ? (
+                                <tr>
+                                    <td className="px-6 py-12 text-slate-500 animate-pulse italic text-center" colSpan="5">
+                                        Connecting to cloud data modules...
                                     </td>
                                 </tr>
-                            ))
-                        )}
-
-                    </tbody>
-
-                </table>
+                            ) : filteredEmployees.length === 0 ? (
+                                <tr>
+                                    <td className="px-6 py-12 text-slate-500 text-center italic" colSpan="5">
+                                        No employee profiles found matching your search.
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredEmployees.map((emp) => (
+                                    <tr
+                                        key={emp.id}
+                                        onClick={() => navigate(`/employees/${emp.id}`)}
+                                        className="hover:bg-slate-50/80 transition-all cursor-pointer group"
+                                    >
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 font-bold text-[11px] group-hover:bg-white group-hover:border-slate-300 transition-all shadow-3xs">
+                                                    {emp.first_name[0]}{emp.last_name[0]}
+                                                </div>
+                                                <span className="font-bold text-slate-900 group-hover:text-yellow-600 transition-colors">
+                                                    {emp.first_name} {emp.last_name}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-600 font-medium">{emp.role || 'Unassigned'}</td>
+                                        <td className="px-6 py-4 text-slate-600 font-medium">{emp.branch || 'Unassigned'}</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <StatusBadge status={emp.employment_status || 'Active'} />
+                                        </td>
+                                        <td className="px-6 py-4 font-mono text-slate-400 text-[11px] tracking-wider text-right font-medium">
+                                            {emp.sa_id_number || 'N/A'}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
                 </div>
-            )}
+            </SummaryCard>
 
-            {/* Floating Modal */}
             {showForm && (
                 <AddEmployeeForm
                     onClose={() => setShowForm(false)}
@@ -166,7 +153,6 @@ export default function EmployeeDirectory() {
                     dbRoles={dbRoles}
                 />
             )}
-
         </div>
     );
 }

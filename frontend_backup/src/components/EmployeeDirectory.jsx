@@ -1,0 +1,148 @@
+import { supabase } from '../supabaseClient';
+import React, { useState, useEffect } from 'react';
+import { UserPlus, ClipboardList } from 'lucide-react';
+import AddEmployeeForm from './AddEmployeeForm';
+import EmployeeProfile from './EmployeeProfile';
+import TabEmployeeDashboard from './profile/TabEmployeeDashboard';
+
+export default function EmployeeFollowUpView({ onNavigateToEmployee }) {
+    const [employees, setEmployees] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [showForm, setShowForm] = useState(false);
+    const [activeView, setActiveView] = useState('directory');
+    const [activeEmployeeCanvas, setActiveEmployeeCanvas] = useState(() => {
+        const savedProfile = localStorage.getItem('active_profile_canvas');
+        return savedProfile ? JSON.parse(savedProfile) : null;
+    });
+
+    useEffect(() => {
+        if (activeEmployeeCanvas) {
+            localStorage.setItem('active_profile_canvas', JSON.stringify(activeEmployeeCanvas));
+        } else {
+            localStorage.removeItem('active_profile_canvas');
+        }
+    }, [activeEmployeeCanvas]);
+
+    const [dbRoles, setDbRoles] = useState([]);    // Short-term memory array tray to hold our live database roles list
+  // Fetch Roles
+  async function fetchDbRoles() {
+    try {
+      const { data, error } = await supabase
+        .from('roles')
+        .select('*');
+
+      if (error) throw error;
+      setDbRoles( data || []);
+    } catch(error) {
+      console.error("Failed to load roles shelf data:", error.message);
+    }
+  }
+    async function fetchEmployees() {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase
+            .from('employees')
+            .select('*');
+            if (error) throw error;
+            setEmployees(data || []);
+        } catch (error) {
+            console.error('Database connection error:', error.message);
+        } finally {
+            setLoading(false);
+        }
+    }
+    
+    useEffect(() => {
+        fetchEmployees();
+        fetchDbRoles();
+    }, []);
+
+    return (
+        <div className="space-y-4">
+            {/* Header - Always Visible */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-lg font-bold text-slate-900">
+                        {activeEmployeeCanvas ? `Profile: ${activeEmployeeCanvas.first_name} ${activeEmployeeCanvas.last_name}` : 'Employee Profiles Directory'}
+                    </h2>
+                    <p className="text-slate-500 text-xs">
+                        {activeEmployeeCanvas 
+                          ? `${activeEmployeeCanvas.role} - ${activeEmployeeCanvas.branch}`
+                          : 'Live administrative staff listings streamed directly from cloud data modules.'}
+                    </p>
+                </div>
+            </div>
+
+            {/* Content Area */}
+            {activeEmployeeCanvas ? (
+                        <EmployeeProfile
+                            employee={activeEmployeeCanvas}
+                            onClose={() => setActiveEmployeeCanvas(null)}
+                            dbRoles={dbRoles}
+                        />
+            ) : activeView === 'followup' ? (
+                <EmployeeFollowUpView onOpenEmployee={(employee) => setActiveEmployeeCanvas(employee)} />
+            ) : (
+                <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                <table className="w-full text-left border-collapse">
+
+                    <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                            <th className="p-4">Full Name</th>
+                            <th className="p-4">Role Assignment</th>
+                            <th className="p-4">Branch Location</th>
+                            <th className="p-4">SA ID Number</th>
+                        </tr>
+                    </thead>
+
+                    <tbody className="devide-y devide-slate-100 text-sm">
+
+                        {loading ? (
+                        <tr>
+                            <td className="p-4 text-slate-500 animate-pulse italic" colSpan="4">
+                                Connecting to cloud data modules...
+                            </td>
+                        </tr>
+                        ) : employees.length === 0 ? (
+                        <tr>
+                            <td className="p-4 text-slate-500 text-center italic" colSpan="4">
+                                No employee profiles found on the server.
+                            </td>
+                        </tr>
+                        ) : (
+                            employees.map((emp) => (
+                                <tr
+                                    key={emp.id}
+                                    onClick={() => setActiveEmployeeCanvas(emp)}
+                                    className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                                >
+                                    <td className="p-4 font-medium text-slate-900">
+                                        {emp.first_name} {emp.last_name}
+                                    </td>
+                                    <td className="p-4 text-slate-600">{emp.role}</td>
+                                    <td className="p-4 text-slate-600">{emp.branch}</td>
+                                    <td className="p-4 font-mono text-slate-400 text-xs tracking-wider">
+                                        {emp.sa_id_number || 'N/A'}
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+
+                    </tbody>
+
+                </table>
+                </div>
+            )}
+
+            {/* Floating Modal */}
+            {showForm && (
+                <AddEmployeeForm
+                    onClose={() => setShowForm(false)}
+                    onRefresh={fetchEmployees}
+                    dbRoles={dbRoles}
+                />
+            )}
+
+        </div>
+    );
+}

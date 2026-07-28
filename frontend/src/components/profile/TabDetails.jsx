@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
+import { User, Phone, MapPin, Briefcase, CreditCard, ShieldAlert } from 'lucide-react';
 
 export default function TabDetails({ employee, dbRoles = [], onProfileUpdated }) {
     const [isEditing, setIsEditing] = useState(false);
@@ -7,6 +8,7 @@ export default function TabDetails({ employee, dbRoles = [], onProfileUpdated })
     const [formData, setFormData] = useState({
         first_name: employee?.first_name || '',
         last_name: employee?.last_name || '',
+        preferred_name: employee?.preferred_name || '',
         role: employee?.role || '',
         branch: employee?.branch || '',
         employee_number: employee?.employee_number || '',
@@ -16,6 +18,10 @@ export default function TabDetails({ employee, dbRoles = [], onProfileUpdated })
         nationality: employee?.nationality || '',
         phone_number: employee?.phone_number || '',
         email: employee?.email || '',
+        address_line_1: employee?.address_line_1 || '',
+        address_line_2: employee?.address_line_2 || '',
+        city: employee?.city || '',
+        postal_code: employee?.postal_code || '',
         start_date: employee?.start_date || '',
         end_date: employee?.end_date || '',
         manager_name: employee?.manager_name || '',
@@ -23,39 +29,53 @@ export default function TabDetails({ employee, dbRoles = [], onProfileUpdated })
         salary_wage: employee?.salary_wage || '',
         emergency_contact_name: employee?.emergency_contact_name || '',
         emergency_contact_number: employee?.emergency_contact_number || '',
-        sa_id_number: employee?.sa_id_number || ''
+        sa_id_number: employee?.sa_id_number || '',
+        tax_number: employee?.tax_number || '',
+        bank_name: employee?.bank_name || '',
+        account_number: employee?.account_number || '',
+        account_type: employee?.account_type || '',
+        branch_code: employee?.branch_code || ''
     });
 
     useEffect(() => {
-        setFormData({
-            first_name: employee?.first_name || '',
-            last_name: employee?.last_name || '',
-            role: employee?.role || '',
-            branch: employee?.branch || '',
-            employee_number: employee?.employee_number || '',
-            department: employee?.department || '',
-            employment_type: employee?.employment_type || '',
-            employment_status: employee?.employment_status || 'Active',
-            nationality: employee?.nationality || '',
-            phone_number: employee?.phone_number || '',
-            email: employee?.email || '',
-            start_date: employee?.start_date || '',
-            end_date: employee?.end_date || '',
-            manager_name: employee?.manager_name || '',
-            probation_status: employee?.probation_status || 'Not Started',
-            salary_wage: employee?.salary_wage || '',
-            emergency_contact_name: employee?.emergency_contact_name || '',
-            emergency_contact_number: employee?.emergency_contact_number || '',
-            sa_id_number: employee?.sa_id_number || ''
-        });
+        if (employee) {
+            setFormData({
+                first_name: employee.first_name || '',
+                last_name: employee.last_name || '',
+                preferred_name: employee.preferred_name || '',
+                role: employee.role || '',
+                branch: employee.branch || '',
+                employee_number: employee.employee_number || '',
+                department: employee.department || '',
+                employment_type: employee.employment_type || '',
+                employment_status: employee.employment_status || 'Active',
+                nationality: employee.nationality || '',
+                phone_number: employee.phone_number || '',
+                email: employee.email || '',
+                address_line_1: employee.address_line_1 || '',
+                address_line_2: employee.address_line_2 || '',
+                city: employee.city || '',
+                postal_code: employee.postal_code || '',
+                start_date: employee.start_date || '',
+                end_date: employee.end_date || '',
+                manager_name: employee.manager_name || '',
+                probation_status: employee.probation_status || 'Not Started',
+                salary_wage: employee.salary_wage || '',
+                emergency_contact_name: employee.emergency_contact_name || '',
+                emergency_contact_number: employee.emergency_contact_number || '',
+                sa_id_number: employee.sa_id_number || '',
+                tax_number: employee.tax_number || '',
+                bank_name: employee.bank_name || '',
+                account_number: employee.account_number || '',
+                account_type: employee.account_type || '',
+                branch_code: employee.branch_code || ''
+            });
+        }
     }, [employee?.id]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value
-        }));
+        setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
     const handleSaveChanges = async (e) => {
@@ -64,31 +84,11 @@ export default function TabDetails({ employee, dbRoles = [], onProfileUpdated })
             setIsSaving(true);
             const { error } = await supabase
                 .from('employees')
-                .update({
-                    first_name: formData.first_name,
-                    last_name: formData.last_name,
-                    role: formData.role,
-                    branch: formData.branch,
-                    employee_number: formData.employee_number,
-                    department: formData.department,
-                    employment_type: formData.employment_type,
-                    employment_status: formData.employment_status,
-                    nationality: formData.nationality,
-                    phone_number: formData.phone_number,
-                    email: formData.email,
-                    start_date: formData.start_date,
-                    end_date: formData.end_date,
-                    manager_name: formData.manager_name,
-                    probation_status: formData.probation_status,
-                    salary_wage: formData.salary_wage,
-                    emergency_contact_name: formData.emergency_contact_name,
-                    emergency_contact_number: formData.emergency_contact_number,
-                    sa_id_number: formData.sa_id_number
-                })
+                .update(formData)
                 .eq('id', employee.id);
 
             if (error) throw error;
-            onProfileUpdated?.({ ...employee, ...formData, id: employee.id });
+            onProfileUpdated?.({ ...employee, ...formData });
             setIsEditing(false);
         } catch (error) {
             console.error('Failed to update employee details:', error.message);
@@ -98,71 +98,73 @@ export default function TabDetails({ employee, dbRoles = [], onProfileUpdated })
         }
     };
 
-    const requiredOnboardingFields = [
-        { key: 'employee_number', label: 'Employee number' },
-        { key: 'department', label: 'Department' },
-        { key: 'employment_type', label: 'Employment type' },
-        { key: 'employment_status', label: 'Employment status' },
-        { key: 'nationality', label: 'Nationality' },
-        { key: 'phone_number', label: 'Phone number' },
-        { key: 'email', label: 'Email address' },
-        { key: 'start_date', label: 'Start date' },
-        { key: 'manager_name', label: 'Manager' },
-        { key: 'probation_status', label: 'Probation status' },
-        { key: 'sa_id_number', label: 'ID or passport number' }
-    ];
+    const SectionHeader = ({ icon: Icon, title }) => (
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mb-4 mt-6 first:mt-0">
+            <Icon size={14} className="text-slate-400" />
+            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{title}</h4>
+        </div>
+    );
 
-    const missingOnboardingFields = requiredOnboardingFields.filter((field) => {
-        const value = formData[field.key];
-        return value === null || value === undefined || String(value).trim() === '';
-    });
+    const Field = ({ label, name, type = 'text', options = null }) => (
+        <div className="space-y-1">
+            <label className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">{label}</label>
+            {isEditing ? (
+                options ? (
+                    <select
+                        name={name}
+                        value={formData[name]}
+                        onChange={handleInputChange}
+                        disabled={isSaving}
+                        className="w-full px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/5 transition-all"
+                    >
+                        {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                ) : (
+                    <input
+                        type={type}
+                        name={name}
+                        value={formData[name]}
+                        onChange={handleInputChange}
+                        disabled={isSaving}
+                        className="w-full px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/5 transition-all"
+                    />
+                )
+            ) : (
+                <div className="text-sm font-semibold text-slate-900 min-h-[1.25rem]">
+                    {formData[name] || <span className="text-slate-300 italic font-normal text-xs">Not set</span>}
+                </div>
+            )}
+        </div>
+    );
 
     return (
-        <div className="space-y-4">
-            <div className="flex justify-between items-center">
-                <h4 className="text-sm font-semibold text-slate-900">Employment Details</h4>
+        <form onSubmit={handleSaveChanges} className="space-y-2">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h3 className="text-sm font-bold text-slate-800">Edit Employee Profile</h3>
+                    <p className="text-[10px] text-slate-500 italic">Manage sensitive personnel and employment data.</p>
+                </div>
                 {!isEditing ? (
                     <button
+                        type="button"
                         onClick={() => setIsEditing(true)}
-                        className="text-xs bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer"
+                        className="text-xs bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg font-bold transition-colors shadow-sm"
                     >
-                        Edit Details
+                        Modify Details
                     </button>
                 ) : (
-                    <div className="flex space-x-2">
+                    <div className="flex gap-2">
                         <button
-                            onClick={() => {
-                                setFormData({
-                                    first_name: employee?.first_name || '',
-                                    last_name: employee?.last_name || '',
-                                    role: employee?.role || '',
-                                    branch: employee?.branch || '',
-                                    employee_number: employee?.employee_number || '',
-                                    department: employee?.department || '',
-                                    employment_type: employee?.employment_type || '',
-                                    employment_status: employee?.employment_status || 'Active',
-                                    nationality: employee?.nationality || '',
-                                    phone_number: employee?.phone_number || '',
-                                    email: employee?.email || '',
-                                    start_date: employee?.start_date || '',
-                                    end_date: employee?.end_date || '',
-                                    manager_name: employee?.manager_name || '',
-                                    probation_status: employee?.probation_status || 'Not Started',
-                                    salary_wage: employee?.salary_wage || '',
-                                    emergency_contact_name: employee?.emergency_contact_name || '',
-                                    emergency_contact_number: employee?.emergency_contact_number || '',
-                                    sa_id_number: employee?.sa_id_number || ''
-                                });
-                                setIsEditing(false);
-                            }}
-                            className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer"
+                            type="button"
+                            onClick={() => setIsEditing(false)}
+                            className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-lg font-bold transition-colors"
                             disabled={isSaving}
                         >
                             Cancel
                         </button>
                         <button
-                            onClick={handleSaveChanges}
-                            className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer"
+                            type="submit"
+                            className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold transition-colors shadow-sm"
                             disabled={isSaving}
                         >
                             {isSaving ? 'Saving...' : 'Save Changes'}
@@ -171,362 +173,60 @@ export default function TabDetails({ employee, dbRoles = [], onProfileUpdated })
                 )}
             </div>
 
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                <div className="flex items-center justify-between">
-                    <h5 className="text-[11px] font-semibold uppercase tracking-wider text-amber-700">Onboarding compliance checklist</h5>
-                    <span className="text-[11px] font-medium text-amber-700">{missingOnboardingFields.length} missing</span>
+            <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-6">
+                <SectionHeader icon={User} title="Personal Information" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <Field label="First Name" name="first_name" />
+                    <Field label="Last Name" name="last_name" />
+                    <Field label="Preferred Name" name="preferred_name" />
+                    <Field label="SA ID / Passport" name="sa_id_number" />
+                    <Field label="Nationality" name="nationality" />
+                    <Field label="Tax Number" name="tax_number" />
                 </div>
-                {missingOnboardingFields.length === 0 ? (
-                    <p className="mt-2 text-sm text-slate-700">All required onboarding details have been captured.</p>
-                ) : (
-                    <ul className="mt-2 space-y-1 text-sm text-slate-700">
-                        {missingOnboardingFields.map((field) => (
-                            <li key={field.key} className="flex items-center gap-2">
-                                <span className="text-amber-600">•</span>
-                                <span>{field.label}</span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
+
+                <SectionHeader icon={Phone} title="Contact & Address" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Field label="Phone Number" name="phone_number" />
+                    <Field label="Email Address" name="email" type="email" />
+                    <Field label="Address Line 1" name="address_line_1" />
+                    <Field label="Address Line 2" name="address_line_2" />
+                    <Field label="City" name="city" />
+                    <Field label="Postal Code" name="postal_code" />
+                </div>
+
+                <SectionHeader icon={Briefcase} title="Employment Status" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <Field label="Employee #" name="employee_number" />
+                    <Field label="Role" name="role" options={[
+                        { value: '', label: 'Select Position...' },
+                        ...dbRoles.map(r => ({ value: r.role_name, label: r.role_name }))
+                    ]} />
+                    <Field label="Department" name="department" />
+                    <Field label="Branch" name="branch" />
+                    <Field label="Start Date" name="start_date" type="date" />
+                    <Field label="Employment Type" name="employment_type" options={[
+                        { value: '', label: 'Select...' },
+                        { value: 'Full Time', label: 'Full Time' },
+                        { value: 'Part Time', label: 'Part Time' },
+                        { value: 'Casual', label: 'Casual' },
+                        { value: 'Contract', label: 'Contract' }
+                    ]} />
+                </div>
+
+                <SectionHeader icon={CreditCard} title="Banking Details" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Field label="Bank Name" name="bank_name" />
+                    <Field label="Account Number" name="account_number" />
+                    <Field label="Account Type" name="account_type" />
+                    <Field label="Branch Code" name="branch_code" />
+                </div>
+
+                <SectionHeader icon={ShieldAlert} title="Emergency Contact" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Field label="Contact Name" name="emergency_contact_name" />
+                    <Field label="Contact Number" name="emergency_contact_number" />
+                </div>
             </div>
-
-            <form onSubmit={handleSaveChanges} className="grid grid-cols-2 gap-4 text-sm bg-slate-50 p-4 rounded-lg border border-slate-100">
-                <div>
-                    <label className="text-xs text-slate-400 block mb-1">First Name</label>
-                    <input
-                        type="text"
-                        name="first_name"
-                        value={formData.first_name}
-                        onChange={handleInputChange}
-                        disabled={!isEditing || isSaving}
-                        className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                            isEditing 
-                                ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                : 'bg-transparent border-transparent'
-                        }`}
-                    />
-                </div>
-
-                <div>
-                    <label className="text-xs text-slate-400 block mb-1">Last Name</label>
-                    <input
-                        type="text"
-                        name="last_name"
-                        value={formData.last_name}
-                        onChange={handleInputChange}
-                        disabled={!isEditing || isSaving}
-                        className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                            isEditing 
-                                ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                : 'bg-transparent border-transparent'
-                        }`}
-                    />
-                </div>
-
-                <div>
-                    <label className="text-xs text-slate-400 block mb-1">Role Assignment</label>
-                    {isEditing ? (
-                        <select
-                            name="role"
-                            value={formData.role}
-                            onChange={handleInputChange}
-                            disabled={isSaving}
-                            className="w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm bg-white border-slate-200 focus:outline-none focus:border-slate-400"
-                        >
-                            <option value="">Select Position...</option>
-                            {dbRoles.map((roleOpt) => (
-                                <option key={roleOpt.id} value={roleOpt.role_name}>
-                                    {roleOpt.role_name}
-                                </option>
-                            ))}
-                        </select>
-                    ) : (
-                        <input
-                            type="text"
-                            value={formData.role}
-                            disabled
-                            className="w-full px-3 py-1.5 text-slate-800 font-medium bg-transparent border-transparent text-sm"
-                        />
-                    )}
-                </div>
-
-                <div>
-                    <label className="text-xs text-slate-400 block mb-1">Branch Location</label>
-                    <input
-                        type="text"
-                        name="branch"
-                        value={formData.branch}
-                        onChange={handleInputChange}
-                        disabled={!isEditing || isSaving}
-                        className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                            isEditing 
-                                ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                : 'bg-transparent border-transparent'
-                        }`}
-                    />
-                </div>
-
-                <div className="col-span-2 grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">Employee Number</label>
-                        <input
-                            type="text"
-                            name="employee_number"
-                            value={formData.employee_number}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isSaving}
-                            className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                                isEditing 
-                                    ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                    : 'bg-transparent border-transparent'
-                            }`}
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">Department</label>
-                        <input
-                            type="text"
-                            name="department"
-                            value={formData.department}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isSaving}
-                            className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                                isEditing 
-                                    ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                    : 'bg-transparent border-transparent'
-                            }`}
-                        />
-                    </div>
-                </div>
-
-                <div className="col-span-2 grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">Employment Type</label>
-                        <select
-                            name="employment_type"
-                            value={formData.employment_type}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isSaving}
-                            className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                                isEditing 
-                                    ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                    : 'bg-transparent border-transparent'
-                            }`}
-                        >
-                            <option value="">Select type...</option>
-                            <option value="Full Time">Full Time</option>
-                            <option value="Part Time">Part Time</option>
-                            <option value="Casual">Casual</option>
-                            <option value="Contract">Contract</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">Employment Status</label>
-                        <select
-                            name="employment_status"
-                            value={formData.employment_status}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isSaving}
-                            className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                                isEditing 
-                                    ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                    : 'bg-transparent border-transparent'
-                            }`}
-                        >
-                            <option value="Active">Active</option>
-                            <option value="Probation">Probation</option>
-                            <option value="Inactive">Inactive</option>
-                            <option value="Terminated">Terminated</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div className="col-span-2 grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">Nationality</label>
-                        <input
-                            type="text"
-                            name="nationality"
-                            value={formData.nationality}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isSaving}
-                            className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                                isEditing 
-                                    ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                    : 'bg-transparent border-transparent'
-                            }`}
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">Phone Number</label>
-                        <input
-                            type="text"
-                            name="phone_number"
-                            value={formData.phone_number}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isSaving}
-                            className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                                isEditing 
-                                    ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                    : 'bg-transparent border-transparent'
-                            }`}
-                        />
-                    </div>
-                </div>
-
-                <div className="col-span-2">
-                    <label className="text-xs text-slate-400 block mb-1">Email Address</label>
-                    <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        disabled={!isEditing || isSaving}
-                        className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                            isEditing 
-                                ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                : 'bg-transparent border-transparent'
-                        }`}
-                    />
-                </div>
-
-                <div className="col-span-2 grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">Start Date</label>
-                        <input
-                            type="date"
-                            name="start_date"
-                            value={formData.start_date}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isSaving}
-                            className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                                isEditing 
-                                    ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                    : 'bg-transparent border-transparent'
-                            }`}
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">End Date</label>
-                        <input
-                            type="date"
-                            name="end_date"
-                            value={formData.end_date}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isSaving}
-                            className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                                isEditing 
-                                    ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                    : 'bg-transparent border-transparent'
-                            }`}
-                        />
-                    </div>
-                </div>
-
-                <div className="col-span-2 grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">Manager</label>
-                        <input
-                            type="text"
-                            name="manager_name"
-                            value={formData.manager_name}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isSaving}
-                            className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                                isEditing 
-                                    ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                    : 'bg-transparent border-transparent'
-                            }`}
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">Probation Status</label>
-                        <select
-                            name="probation_status"
-                            value={formData.probation_status}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isSaving}
-                            className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                                isEditing 
-                                    ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                    : 'bg-transparent border-transparent'
-                            }`}
-                        >
-                            <option value="Not Started">Not Started</option>
-                            <option value="In Probation">In Probation</option>
-                            <option value="Completed">Completed</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div className="col-span-2 grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">Salary / Wage</label>
-                        <input
-                            type="text"
-                            name="salary_wage"
-                            value={formData.salary_wage}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isSaving}
-                            className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                                isEditing 
-                                    ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                    : 'bg-transparent border-transparent'
-                            }`}
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">Emergency Contact</label>
-                        <input
-                            type="text"
-                            name="emergency_contact_name"
-                            value={formData.emergency_contact_name}
-                            onChange={handleInputChange}
-                            disabled={!isEditing || isSaving}
-                            className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                                isEditing 
-                                    ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                    : 'bg-transparent border-transparent'
-                            }`}
-                        />
-                    </div>
-                </div>
-
-                <div className="col-span-2">
-                    <label className="text-xs text-slate-400 block mb-1">Emergency Contact Number</label>
-                    <input
-                        type="text"
-                        name="emergency_contact_number"
-                        value={formData.emergency_contact_number}
-                        onChange={handleInputChange}
-                        disabled={!isEditing || isSaving}
-                        className={`w-full px-3 py-1.5 text-slate-800 font-medium rounded-md border text-sm transition-all ${
-                            isEditing 
-                                ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                : 'bg-transparent border-transparent'
-                        }`}
-                    />
-                </div>
-
-                <div className="col-span-2">
-                    <label className="text-xs text-slate-400 block mb-1">ID / Passport Number</label>
-                    <input
-                        type="text"
-                        name="sa_id_number"
-                        value={formData.sa_id_number}
-                        onChange={handleInputChange}
-                        disabled={!isEditing || isSaving}
-                        className={`w-full px-3 py-1.5 text-slate-800 font-mono font-medium rounded-md border text-sm transition-all ${
-                            isEditing 
-                                ? 'bg-white border-slate-200 focus:outline-none focus:border-slate-400' 
-                                : 'bg-transparent border-transparent'
-                        }`}
-                    />
-                    <p className="text-[11px] text-slate-400 mt-1">
-                        A 13-digit number is treated as a South African ID. Any other value is treated as a passport/foreign identity reference.
-                    </p>
-                </div>
-            </form>
-        </div>
+        </form>
     );
 }

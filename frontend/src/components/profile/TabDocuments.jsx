@@ -1,26 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
+import { getIdentityStatus, getRequiredDocuments } from '../../utils/complianceHelper';
 
 export default function TabDocuments({ employee }) {
-    const identityValue = (employee?.sa_id_number || '').trim();
-    const isSouthAfrican = /^\d{13}$/.test(identityValue);
-    const isForeignNational = identityValue.length > 0 && !isSouthAfrican;
-
-    const requiredDocuments = !identityValue
-        ? []
-        : isSouthAfrican
-            ? [
-                { type: 'ID Copy', description: 'Certified copy of the South African ID' },
-                { type: 'Tax Certificate', description: 'SARS tax certificate or employment tax record' },
-                { type: 'Proof of Address', description: 'Utility bill or lease agreement' }
-            ]
-            : [
-                { type: 'Passport', description: 'Certified passport copy' },
-                { type: 'Work Permit', description: 'Valid work permit or authorization' },
-                { type: 'Visa', description: 'Valid visa or entry permit' },
-                { type: 'Tax Certificate', description: 'Tax certificate or tax compliance record' },
-                { type: 'Proof of Address', description: 'Utility bill or lease agreement' }
-            ];
+    const { identityValue, isSouthAfrican, isForeignNational } = getIdentityStatus(employee);
+    const requiredDocuments = getRequiredDocuments(employee);
 
     const optionalDocuments = ['Employment Contract', 'Banking Details', 'Certificates', 'Licences', 'Food Safety', 'Other'];
     const documentOptions = Array.from(new Set([...requiredDocuments.map((doc) => doc.type), ...optionalDocuments]));

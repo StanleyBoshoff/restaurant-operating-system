@@ -2,14 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { getSaHolidaysForYear } from '../utils/saHolidayEngine';
 import EmployeeFollowUpView from './EmployeeFollowUpView';
+import SummaryCard from './common/SummaryCard';
+import StatusBadge from './common/StatusBadge';
+import ModuleWorkspaceHeader from './common/ModuleWorkspaceHeader';
+import { LayoutDashboard, Calendar as CalendarIcon, ClipboardList, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 
-export default function Dashboard() {
+export default function Dashboard({ onNavigateToEmployee }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [allEvents, setAllEvents] = useState([]);
   const [sidebarAgenda, setSidebarAgenda] = useState([]);
   const [loading, setLoading] = useState(false);
   const [employeeAlerts, setEmployeeAlerts] = useState([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
+  const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
 
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth(); // 0-11
@@ -167,6 +172,15 @@ export default function Dashboard() {
     };
 
     fetchEmployeeAlerts();
+
+    const fetchPendingLeave = async () => {
+      const { count } = await supabase
+        .from('employee_leave')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'Pending');
+      setPendingLeaveCount(count || 0);
+    };
+    fetchPendingLeave();
   }, []);
 
   // Navigation functions for calendar controls
@@ -249,80 +263,94 @@ export default function Dashboard() {
 
 
   return (
-    <div className="space-y-6 p-4 text-xs">
-      <div>
-        <h3 className="text-lg font-bold text-slate-900">Management Command Center</h3>
-        <p className="text-slate-500">Real-time automated operations and workforce deployment tracking.</p>
-      </div>
+    <div className="space-y-6">
+      <ModuleWorkspaceHeader
+        title="Management Command Center"
+        description="Real-time automated operations and workforce deployment tracking."
+        icon={LayoutDashboard}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        <div className="lg:col-span-3 bg-white border border-slate-200 p-4 rounded-xl shadow-2xl space-y-4">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-            <div>
-              <h4 className="text-sm font-bold text-slate-900">{monthNames[currentMonth]} {currentYear}</h4>
-            </div>
-            <div className="flex space-x-1">
-              <button onClick={handlePrevMonth} className="px-2.5 py-1 bg-slate-50 border rounded-md hover:bg-slate-100 font-bold transition-colors cursor-pointer text-slate-600">&larr;</button>
-              <button onClick={handleNextMonth} className="px-2.5 py-1 bg-slate-50 border rounded-md hover:bg-slate-100 font-bold transition-colors cursor-pointer text-slate-600">&rarr;</button>
-            </div>
-          </div>
+        <div className="lg:col-span-3">
+          <SummaryCard
+            title={`${monthNames[currentMonth]} ${currentYear}`}
+            icon={CalendarIcon}
+            badge={<div className="flex space-x-1">
+              <button onClick={handlePrevMonth} className="p-1 hover:bg-slate-200 rounded-md transition-colors cursor-pointer text-slate-600"><ChevronLeft size={16} /></button>
+              <button onClick={handleNextMonth} className="p-1 hover:bg-slate-200 rounded-md transition-colors cursor-pointer text-slate-600"><ChevronRight size={16} /></button>
+            </div>}
+          >
+            <div className="space-y-4">
+              <div className="grid grid-cols-7 gap-1 text-center font-bold text-slate-400 text-[10px] uppercase tracking-wider">
+                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+              </div>
 
-          <div className="grid grid-cols-7 gap-1 text-center font-bold text-slate-400 text-[10px] uppercase tracking-wider">
-            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
-          </div>
-
-          {loading ? (
-            <div className="text-center p-12 text-slate-400 italic animate-pulse">Syncing monthly operations grid matrix...</div>
-          ) : (
-            <div className="grid grid-cols-7 gap-1.5">
-              {calendarCells}
+              {loading ? (
+                <div className="text-center p-12 text-slate-400 italic animate-pulse text-xs">Syncing monthly operations grid matrix...</div>
+              ) : (
+                <div className="grid grid-cols-7 gap-1.5">
+                  {calendarCells}
+                </div>
+              )}
             </div>
-          )}
+          </SummaryCard>
         </div>
 
-        <div className="space-y-4 lg:col-span-1">
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-4">
-            <div>
-              <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[10px]">Operational Agenda</h4>
-              <p className="text-slate-400 text-[10px]">Rolling 30-day schedule of public holidays, staff leave, and company events.</p>
+        <div className="space-y-6 lg:col-span-1">
+          {pendingLeaveCount > 0 && (
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg flex items-center justify-between group hover:bg-slate-800 transition-all cursor-pointer animate-in fade-in slide-in-from-right-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-yellow-600/10 border border-yellow-600/20 flex items-center justify-center text-yellow-600">
+                  <Inbox size={20} />
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">HR Attention Required</p>
+                  <h4 className="text-sm font-bold text-white leading-none">{pendingLeaveCount} Leave Requests</h4>
+                </div>
+              </div>
+              <ChevronRight size={18} className="text-slate-600 group-hover:text-yellow-600 transition-colors" />
             </div>
+          )}
 
-            {loading ? (
-              <p className="text-center text-slate-400 italic animate-pulse">Syncing dynamic runtime schedules...</p>
-            ) : sidebarAgenda.length === 0 ? (
-              <div className="text-center p-8 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                Clean schedule. No team items or holidays logged within next 30 days.
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1 no-scrollbar">
-                {sidebarAgenda.map(item => {
-                  const badgeStyle = 
-                    item.event_type === 'Public Holiday' ? 'bg-red-50 text-red-700 border-red-200' :
-                    item.event_type === 'Leave Block' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                    'bg-blue-50 text-blue-700 border-blue-200';
+          <SummaryCard
+            title="Operational Agenda"
+            icon={ClipboardList}
+          >
+            <div className="space-y-4">
+              <p className="text-slate-400 text-[10px] -mt-1">Rolling 30-day schedule of public holidays, staff leave, and company events.</p>
 
-                  return (
-                    <div key={`sidebar-${item.id}`} className="p-3 border border-slate-100 rounded-lg flex items-center justify-between gap-4 bg-white hover:bg-slate-50 transition-colors shadow-3xs">
-                      <div className="min-w-0">
-                        <span className="font-semibold text-slate-800 block truncate">{item.title}</span>
-                        <span className="text-[10px] text-slate-400 block font-medium">
-                          {item.start_date === item.end_date 
-                            ? new Date(item.start_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })
-                            : `${new Date(item.start_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} - ${new Date(item.end_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}`
-                          }
-                        </span>
+              {loading ? (
+                <p className="text-center text-slate-400 italic animate-pulse text-xs">Syncing dynamic runtime schedules...</p>
+              ) : sidebarAgenda.length === 0 ? (
+                <div className="text-center p-8 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-xs">
+                  Clean schedule. No team items or holidays logged within next 30 days.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1 no-scrollbar">
+                  {sidebarAgenda.map(item => {
+                    const status = item.event_type === 'Public Holiday' ? 'Holiday' : item.event_type === 'Leave Block' ? 'Leave' : 'Event';
+
+                    return (
+                      <div key={`sidebar-${item.id}`} className="p-3 border border-slate-100 rounded-lg flex items-center justify-between gap-4 bg-white hover:bg-slate-50 transition-colors shadow-3xs">
+                        <div className="min-w-0">
+                          <span className="font-semibold text-slate-800 block truncate text-[11px]">{item.title}</span>
+                          <span className="text-[10px] text-slate-400 block font-medium">
+                            {item.start_date === item.end_date
+                              ? new Date(item.start_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })
+                              : `${new Date(item.start_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} - ${new Date(item.end_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}`
+                            }
+                          </span>
+                        </div>
+                        <StatusBadge status={status} />
                       </div>
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border shrink-0 ${badgeStyle}`}>
-                        {item.event_type === 'Public Holiday' ? 'Holiday' : item.event_type === 'Leave Block' ? 'Leave' : 'Event'}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </SummaryCard>
 
-          <EmployeeFollowUpView compact />
+          <EmployeeFollowUpView compact onNavigateToEmployee={onNavigateToEmployee} />
         </div>
       </div>
     </div>

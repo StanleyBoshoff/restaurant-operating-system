@@ -28,11 +28,16 @@ export default function TabLeave({ employee }) {
     if (!employee?.id) return;
     try {
       setLoading(true);
-      const { data: leave } = await supabase
+      const { data: leave, error } = await supabase
         .from('employee_leave')
         .select('*')
         .eq('employee_id', employee.id)
         .order('start_date', { ascending: false });
+
+      if (error) {
+        console.error('Supabase error fetching leave history:', error);
+        throw error;
+      }
       setLeaveLog(leave || []);
     } catch (err) {
       console.error('Failed to stream leave metrics:', err.message);
@@ -112,7 +117,10 @@ export default function TabLeave({ employee }) {
         attachment_url: attachmentUrl
       }]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error inserting leave request:', error);
+        throw error;
+      }
 
       alert('Leave request submitted for HR approval.');
       setStartDate('');

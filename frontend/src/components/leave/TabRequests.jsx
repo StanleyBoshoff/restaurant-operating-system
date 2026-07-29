@@ -23,14 +23,16 @@ export default function TabRequests() {
             last_name,
             role,
             department,
-            manager_name,
-            manager_id
+            manager_name
           )
         `)
         .eq('status', 'Pending')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error fetching leave requests:', error);
+        throw error;
+      }
       setRequests(data || []);
     } catch (err) {
       console.error('Error fetching leave requests:', err.message);
@@ -52,7 +54,10 @@ export default function TabRequests() {
         .update({ status: newStatus })
         .eq('id', request.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error updating leave status:', error);
+        throw error;
+      }
 
       if (newStatus === 'Approved') {
         // Trigger notification sequence

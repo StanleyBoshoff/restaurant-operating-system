@@ -1,507 +1,347 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "../../supabaseClient";
+import { supabase } from "../../supabaseClient"; 
+import {
+  OFFENCE_REGISTRY,
+  suggestCharges,
+  getProbingQuestions,
+  generateLocalDraft,
+  DISCIPLINARY_LEVELS,
+  AUTHORIZED_ISSUERS
+} from "../../utils/disciplinaryEngine";
+import { submitEngineFeedback, notifyStaffOfDisciplinaryConsultation } from "../../utils/notificationService";
+import {
+  BrainCircuit, Check, Gavel, Plus, Search, Trash2, Wand2, X, AlertTriangle, MessageSquare, Send, ChevronRight, FileUp, Download
+} from "lucide-react";
+import SummaryCard from "../common/SummaryCard";
+import StatusBadge from "../common/StatusBadge";
 
-export default function TabWarnings({ employee }) {
-  // Local list and screen-state toggles
+export default function TabWarnings({ employee }) { 
   const [warningsList, setWarningsList] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [isAdding, setIsAdding] = useState(false);
+  const [loading, setLoading] = useState(false); 
+  const [isAdding, setIsAdding] = useState(false); 
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Form data tracking values
-  const [warningLevel, setWarningLevel] = useState("");
-  const [incidentDate, setIncidentDate] = useState("");
-  const [description, setDescription] = useState("");
-  const [issuedBy, setIssuedBy] = useState("");
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingWarningId, setEditingWarningId] = useState(null);
+  // Form states
+  const [warningLevel, setWarningLevel] = useState(""); 
+  const [incidentDate, setIncidentDate] = useState(new Date().toISOString().split("T")[0]);
+  const [description, setDescription] = useState(""); 
+  const [issuedBy, setIssuedBy] = useState(""); 
+  const [selectedFile, setSelectedFile] = useState(null); 
 
-  // Fetch historical entries straight from Supabase module table
+  // Wizard States
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [wizardPhase, setWizardPhase] = useState('DESC'); // 'DESC', 'PROBE', 'CHARGES'
+  const [wizardAnswers, setWizardAnswers] = useState({});
+  const [probingQuestions, setProbingQuestions] = useState([]);
+  const [selectedOffences, setSelectedOffences] = useState([]);
+  const [chargeSearch, setChargeSearch] = useState("");
+
+  // Feedback states
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackNote, setFeedbackNote] = useState("");
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
   const fetchEmployeeWarnings = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("employee_warnings")
-        .select("*")
-        .eq("employee_id", employee.id)
-        .order("incident_date", { ascending: false });
+    try { 
+      setLoading(true); 
+      const { data, error } = await supabase.from("employee_warnings").select("*").eq("employee_id", employee.id).order("incident_date", { ascending: false });
+      if (error) throw error; 
+      setWarningsList(data || []); 
+    } catch (error) { 
+      console.error("Failed to load warnings history:", error.message); 
+    } finally { 
+      setLoading(false); 
+    } 
+  }; 
 
-      if (error) throw error;
-      setWarningsList(data || []);
-    } catch (error) {
-      console.error("Failed to load warnings history:", error.message);
-    } finally {
-      setLoading(false);
+  useEffect(() => { if (employee?.id) fetchEmployeeWarnings(); }, [employee?.id]);
+
+  const handleStartWizard = () => {
+    setIsWizardOpen(true);
+    setWizardPhase('DESC');
+    setWizardAnswers({});
+    setSelectedOffences([]);
+    setChargeSearch("");
+  };
+
+  const handleAnswerChange = (id, val) => {
+    setWizardAnswers(prev => ({ ...prev, [id]: val }));
+  };
+
+  const handleDescSubmit = () => {
+    if (!wizardAnswers.description || wizardAnswers.description.length < 5) return alert("Please provide a brief description first.");
+    const probes = getProbingQuestions(wizardAnswers);
+    if (probes.length > 0) {
+      setProbingQuestions(probes);
+      setWizardPhase('PROBE');
+    } else {
+      finalizeQuestions();
     }
   };
 
-  useEffect(() => {
-    if (employee?.id) {
-      fetchEmployeeWarnings();
+  const finalizeQuestions = () => {
+    const suggested = suggestCharges(wizardAnswers);
+    setSelectedOffences(suggested);
+    setWizardPhase('CHARGES');
+  };
+
+  const toggleOffence = (offence) => {
+    setSelectedOffences(prev => prev.find(o => o.id === offence.id) ? prev.filter(o => o.id !== offence.id) : [...prev, offence]);
+  };
+
+  const handleGenerateFinalText = () => {
+    const draft = generateLocalDraft({
+      employeeName: `${employee.first_name} ${employee.last_name}`,
+      date: incidentDate,
+      answers: wizardAnswers,
+      selectedOffences: selectedOffences
+    });
+    setDescription(draft);
+    setIsWizardOpen(false);
+    setIsAdding(true);
+  };
+
+  const handleSubmitFeedback = async () => {
+    try {
+      setIsSubmittingFeedback(true);
+      await submitEngineFeedback({ managerName: issuedBy || 'System Admin', originalFacts: JSON.stringify(wizardAnswers), generatedDraft: description, correctionNotes: feedbackNote });
+      alert("Correction sent to Stanley. Thank you.");
+      setShowFeedbackModal(false);
+      setFeedbackNote("");
+    } catch (err) {
+      alert("Failed to send feedback.");
+    } finally {
+      setIsSubmittingFeedback(false);
     }
-  }, [employee?.id]);
+  };
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    if (!warningLevel || !incidentDate || !description || !issuedBy) {
-      alert("Please fill out all required logging fields.");
-      return;
-    }
-
+    if (!warningLevel || !incidentDate || !description || !issuedBy) return alert("All fields required.");
     try {
+      setIsSaving(true);
       let uploadedPath = null;
-
-      // 1. File Handling Block (retains your solid screenshot uploading engine architecture)
       if (selectedFile) {
-        const targetFile = selectedFile;
-        const fileExtension = targetFile.name.split(".").pop();
-        const uniqueFileName = `${employee.id}/warnings/${Date.now()}_warning.${fileExtension}`;
-
-        const { data: storageData, error: storageError } =
-          await supabase.storage
-            .from("employee-files")
-            .upload(uniqueFileName, targetFile, {
-              cacheControl: "3600",
-              upsert: false,
-            });
-
-        if (storageError) throw storageError;
+        const fileExt = selectedFile.name.split(".").pop();
+        const fileName = `${employee.id}/warnings/${Date.now()}.${fileExt}`;
+        const { data: storageData, error: sErr } = await supabase.storage.from("employee-files").upload(fileName, selectedFile);
+        if (sErr) throw sErr;
         uploadedPath = storageData.path;
       }
+      const { error } = await supabase.from("employee_warnings").insert([{ employee_id: employee.id, warning_level: warningLevel, incident_date: incidentDate, description: description, issued_by: issuedBy, file_url: uploadedPath }]);
+      if (error) throw error;
 
-      // 2. Dynamic Structural Routing: Check if we are running an Insert or an Update transaction query
-      if (isEditing) {
-        // 🛠️ SURGICAL RE-WRITE (CRUD-Update Transaction Query)
-        const updatePayload = {
-          warning_level: warningLevel,
-          incident_date: incidentDate,
-          description: description,
-          issued_by: issuedBy,
-        };
+      // Notify Staff
+      await notifyStaffOfDisciplinaryConsultation(employee, warningLevel);
 
-        // If the manager selected a new screenshot file asset, append the newly generated storage pointer string
-        if (uploadedPath) {
-          updatePayload.file_url = uploadedPath;
-        }
-
-        const { error: updateError } = await supabase
-          .from("employee_warnings")
-          .update(updatePayload)
-          .eq("id", editingWarningId);
-
-        if (updateError) throw updateError;
-        alert("Disciplinary record successfully modified in database.");
-      } else {
-        // 📝 TRADITIONAL MANIFEST GENERATION (CRUD-Create Transaction Insertion Array)
-        const { error: insertError } = await supabase
-          .from("employee_warnings")
-          .insert([
-            {
-              employee_id: employee.id,
-              warning_level: warningLevel,
-              incident_date: incidentDate,
-              description: description,
-              issued_by: issuedBy,
-              file_url: uploadedPath,
-            },
-          ]);
-
-        if (insertError) throw insertError;
-        alert("Incident record logged successfully.");
-      }
-
-      // 3. Reset form states, text parameters, and clear selection references
-      setWarningLevel("");
-      setIncidentDate("");
-      setDescription("");
-      setIssuedBy("");
-      setSelectedFile(null);
-      setIsEditing(false);
-      setEditingWarningId(null);
-
-      const fileInput = document.getElementById("warning-file-picker");
-      if (fileInput) fileInput.value = "";
-
+      alert("Warning recorded. Staff member notified.");
       setIsAdding(false);
-      fetchEmployeeWarnings(); // Instantly synchronizes live UI cache
-    } catch (error) {
-      console.error("Data layer mutation failure:", error.message);
-      alert(`Transaction aborted: ${error.message}`);
+      setDescription("");
+      fetchEmployeeWarnings();
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleDeleteWarning = async (warningId, storageFilePath) => {
-    const confirmErase = window.confirm(
-      "Are you absolutely certain you want to purge this disciplinary log entry? This operation is permanent.",
-    );
-    if (!confirmErase) return;
-
+  const handleLateUpload = async (warningId, file) => {
     try {
       setLoading(true);
-
-      // 1. If an attached file asset path exists, evict it from Supabase Storage first
-      if (storageFilePath) {
-        const { error: storageEvictionError } = await supabase.storage
-          .from("employee-files")
-          .remove([storageFilePath]);
-
-        if (storageEvictionError) {
-          console.error(
-            "Storage cleanup anomaly encountered:",
-            storageEvictionError.message,
-          );
-        }
-      }
-
-      // 2. Surgical deletion extraction from the PostgreSQL data table
-      const { data: serverPayload, error: databaseEvictionError } =
-        await supabase
-          .from("employee_warnings")
-          .delete()
-          .eq("id", warningId)
-          .select(); // Returns row details to confirm action
-
-      if (databaseEvictionError) throw databaseEvictionError;
-
-      // 3. Evaluation of database rows changed
-      if (!serverPayload || serverPayload.length === 0) {
-        alert(
-          "Database Row Dropped: Request completed, but no rows matched that ID. Please ensure your Supabase table RLS 'DELETE' policies are active.",
-        );
-      } else {
-        alert(
-          "Disciplinary log entry successfully purged from active registry.",
-        );
-      }
-
-      // 4. Force instant live layout cache refresh
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${employee.id}/warnings/${Date.now()}_signed.${fileExt}`;
+      const { data: storageData, error: sErr } = await supabase.storage.from("employee-files").upload(fileName, file);
+      if (sErr) throw sErr;
+      const { error } = await supabase.from("employee_warnings").update({ file_url: storageData.path }).eq("id", warningId);
+      if (error) throw error;
+      alert("Signed proof uploaded.");
       fetchEmployeeWarnings();
-    } catch (error) {
-      console.error("Purge transaction failure:", error.message);
-      alert(`Erase failed: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { alert(`Upload failed: ${err.message}`); } finally { setLoading(false); }
   };
 
-  const startEditingRecord = (warningItem) => {
-    setWarningLevel(warningItem.warning_level);
-    setIncidentDate(warningItem.incident_date);
-    setDescription(warningItem.description);
-    setIssuedBy(warningItem.issued_by);
-
-    setEditingWarningId(warningItem.id); // Captures target row key string identifier
-    setIsEditing(true); // Flags system update routing environment
-    setIsAdding(true); // Drops open the form interface layout slider
+  const openAttachment = async (path) => {
+    try {
+      const { data, error } = await supabase.storage.from('employee-files').createSignedUrl(path, 60);
+      if (error) throw error;
+      window.open(data.signedUrl, '_blank');
+    } catch (err) { alert('Could not open file: ' + err.message); }
   };
+
+  const filteredRegistry = OFFENCE_REGISTRY.filter(o => o.desc.toLowerCase().includes(chargeSearch.toLowerCase()) || o.cat.toLowerCase().includes(chargeSearch.toLowerCase()))
+    .sort((a, b) => {
+      const aSelected = selectedOffences.some(o => o.id === a.id);
+      const bSelected = selectedOffences.some(o => o.id === b.id);
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+      return 0;
+    });
 
   return (
-    <div className="space-y-6">
-      {/* Header section with form toggles and upcoming feature badge */}
-      <div className="flex justify-between items-start border-b border-slate-100 pb-4">
-        <div>
-          <h4 className="text-sm font-semibold text-slate-900">
-            Disciplinary Logs & Compliance Tracking
-          </h4>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Historical infraction records for{" "}
-            {employee?.first_name || "Employee"}.
-          </p>
-        </div>
+    <div className="space-y-6 text-xs">
 
-        <div className="flex space-x-2">
-          {/* Feature reminder promo flag */}
-          <div className="bg-purple-50 border border-purple-200 text-purple-700 text-[10px] font-bold px-3 py-1.5 rounded-md flex items-center space-x-1.5">
-            <span>✨ Future Sprint:</span>
-            <span className="uppercase tracking-wider">AI Guided Writer</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsAdding(!isAdding)}
-            className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
-              isAdding
-                ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                : "bg-slate-900 text-white hover:bg-slate-800"
-            }`}
-          >
-            {isAdding ? "Cancel" : "Log New Warning"}
-          </button>
-        </div>
-      </div>
-
-      {isAdding ? (
-        /* 📝 BASIC MANIFEST RECORDING FORM */
-        <form
-          onSubmit={handleFormSubmit}
-          className="bg-slate-50 border border-slate-100 p-4 rounded-xl space-y-4 text-xs"
-        >
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="text-slate-400 block mb-1 font-semibold uppercase tracking-wider">
-                Warning Level
-              </label>
-              <select
-                value={warningLevel}
-                onChange={(e) => setWarningLevel(e.target.value)}
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-md text-slate-800 focus:outline-none"
-              >
-                <option value="">Select Level...</option>
-                <option value="Verbal Warning">Verbal Warning</option>
-                <option value="First Written Warning">
-                  First Written Warning
-                </option>
-                <option value="Final Written Warning">
-                  Final Written Warning
-                </option>
-                <option value="Suspension Notice">Suspension Notice</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-slate-400 block mb-1 font-semibold uppercase tracking-wider">
-                Incident Date
-              </label>
-              <input
-                type="date"
-                value={incidentDate}
-                onChange={(e) => setIncidentDate(e.target.value)}
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-md text-slate-800 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="text-slate-400 block mb-1 font-semibold uppercase tracking-wider">
-                Issued By (Manager)
-              </label>
-              <input
-                type="text"
-                value={issuedBy}
-                onChange={(e) => setIssuedBy(e.target.value)}
-                placeholder="Manager Name"
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-md text-slate-800 focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-slate-400 block mb-1 font-semibold uppercase tracking-wider">
-              Incident Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows="3"
-              placeholder="Provide a clear factual description of the infraction..."
-              className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-md text-slate-800 focus:outline-none resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-slate-400 block mb-1 font-semi-bold uppercase tracking-wider">
-              Signed Document / screenshot (Optional)
-            </label>
-            <input
-              id="warning-file-picker"
-              type="file"
-              accept="image/*,application/pdf"
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                  setSelectedFile(e.target.files[0]);
-                }
-              }}
-              className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file_font-semibold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 cursor-pointer"
-            />
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              className={`px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer shadow-2xs ${
-                isEditing
-                  ? "bg-amber-600 hover:bg-amber-700 text-white"
-                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
-              }`}
-            >
-              {isEditing ? "Update Incident Record" : "Save Log Record"}
-            </button>
-          </div>
-        </form>
-      ) : (
-        /* 📋 HISTORICAL INCIDENT LIST & ADVANCED BUILDER TEASER */
-        <div className="space-y-4">
-          {/* Guided builder placeholder section */}
-          <div className="bg-purple-50/40 border border-purple-100 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <h5 className="text-xs font-bold text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
-                <span>🚀</span> Smart Warning Drafting Blueprint
-              </h5>
-              <p className="text-[11px] text-purple-700 max-w-xl leading-relaxed">
-                You have formal training in drafting airtight disciplinaries,
-                but many managers do not. We are reserving this space to build
-                an interactive, AI-assisted wizard. It will ask managers key
-                operational questions and auto-generate legal warnings matching
-                proper labor frameworks.
-              </p>
-            </div>
-          </div>
-
-          {/* Historical Records View */}
-          <div className="space-y-2">
-            <h5 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Active Incident Registry
-            </h5>
-
-            {loading ? (
-              <div className="text-center p-6 text-xs text-slate-400 italic animate-pulse">
-                Accessing compliance server registries...
+      {/* 🚀 Expert Wizard Overlay */}
+      {isWizardOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-yellow-600 rounded-2xl flex items-center justify-center text-white"><Gavel size={20} /></div>
+                <h3 className="font-black text-slate-900 text-sm uppercase tracking-tight">Expert Disciplinary Engine</h3>
               </div>
-            ) : warningsList.length === 0 ? (
-              <div className="border border-dashed border-slate-200 rounded-lg p-6 text-center text-sm text-slate-400">
-                Clean record. No historical disciplinary records logged on this
-                profile.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {warningsList.map((warningItem) => {
-                  // Assign conditional border accent layouts based on warning severity
-                  const severityColor = warningItem.warning_level.includes(
-                    "Final",
-                  )
-                    ? "border-l-rose-600 bg-rose-50/10"
-                    : warningItem.warning_level.includes("First")
-                      ? "border-l-amber-500 bg-amber-50/10"
-                      : warningItem.warning_level.includes("Suspension")
-                        ? "border-l-slate-900 bg-slate-50/40"
-                        : "border-l-yellow-600 bg-yellow-50/10";
+              <button onClick={() => setIsWizardOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"><X size={20} /></button>
+            </div>
 
-                  return (
-                    <div
-                      key={warningItem.id}
-                      className={`p-4 border border-slate-200 border-l-4 ${severityColor} rounded-xl shadow-2xs space-y-2`}
-                    >
-                      {/* 1. Header Row Element Container */}
-                      <div className="flex justify-between items-start text-xs">
-                        <span className="font-bold text-slate-900 text-sm">
-                          {warningItem.warning_level ||
-                            warningItem.warningLevel}
-                        </span>
+            <div className="p-8 overflow-y-auto flex-1 bg-slate-50/50">
+              {wizardPhase === 'DESC' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                  <div className="text-center space-y-2">
+                    <h4 className="text-lg font-black text-slate-900 leading-tight">Summarize the Incident</h4>
+                    <p className="text-slate-500 font-medium">Describe what happened. The engine will investigate the legal specifics.</p>
+                  </div>
+                  <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm space-y-4">
+                    <textarea rows={6} value={wizardAnswers.description || ""} onChange={e => handleAnswerChange('description', e.target.value)} placeholder="e.g., Thabo hit a waiter during the lunch rush..." className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-sm focus:border-yellow-600 outline-none transition-all" />
+                  </div>
+                  <button onClick={handleDescSubmit} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2">Analyze Facts <ChevronRight size={18}/></button>
+                </div>
+              )}
 
-                        <div className="flex items-center space-x-3 text-slate-400">
-                          <span className="font-medium">
-                            Incident:{" "}
-                            {new Date(
-                              warningItem.incident_date,
-                            ).toLocaleDateString()}
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() => startEditingRecord(warningItem)}
-                            className="hover:text-amber-600 p-1 rounded-md hover:bg-amber-50 transition-colors cursor-pointer"
-                            title="Edit this record text data"
-                          >
-                            <svg
-                              xmlns="http://w3.org"
-                              className="h-4 w-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                              />
-                            </svg>
-                          </button>
-
-                          {/* 🗑️ Targeted Delete Switch Action */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDeleteWarning(
-                                warningItem.id,
-                                warningItem.file_url,
-                              )
-                            }
-                            className="hover:text-rose-600 p-1 rounded-md hover:bg-rose-50 transition-colors cursor-pointer text-slate-400"
-                            title="Delete this record"
-                          >
-                            <svg
-                              xmlns="http://w3.org"
-                              className="h-4 w-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* 2. Description Content Box */}
-                      <p className="text-xs text-slate-600 leading-relaxed bg-white/60 p-2 rounded-lg border border-slate-100">
-                        {warningItem.description}
-                      </p>
-
-                      {/* 3. Footer Metrics Section Wrapper */}
-                      <div className="text-[10px] text-slate-400 font-medium flex justify-between items-center pt-1 border-t border-slate-100">
-                        <span>
-                          Issued By:{" "}
-                          <span className="text-slate-600 font-semibold">
-                            {warningItem.issued_by}
-                          </span>
-                        </span>
-
-                        {/* 📄 Secure Temporary Signed URL Attachment Link Trigger */}
-                        {warningItem.file_url && (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                const { data, error } = await supabase.storage
-                                  .from("employee-files")
-                                  .createSignedUrl(warningItem.file_url, 60);
-
-                                if (error) throw error;
-                                if (data?.signedUrl)
-                                  window.open(data.signedUrl, "_blank");
-                              } catch (err) {
-                                console.error("Link token error:", err.message);
-                                alert(
-                                  "Could not generate secure file preview access authorization.",
-                                );
-                              }
-                            }}
-                            className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md hover:bg-purple-100 transition-colors cursor-pointer"
-                          >
-                            View Attached Screenshot
-                          </button>
+              {wizardPhase === 'PROBE' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                  <div className="bg-amber-50 border border-amber-200 p-6 rounded-3xl flex flex-col items-center text-center gap-4">
+                    <AlertTriangle className="text-amber-600" size={40} />
+                    <h4 className="text-amber-900 font-black text-lg uppercase">Expert Investigation Required</h4>
+                  </div>
+                  <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {probingQuestions.map(q => (
+                      <div key={q.id} className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">{q.label}</label>
+                        {q.type === 'boolean' ? (
+                          <div className="flex gap-2">
+                            <button onClick={() => handleAnswerChange(q.id, true)} className={`flex-1 py-2.5 rounded-xl border-2 font-bold transition-all ${wizardAnswers[q.id] === true ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-400 border-slate-100'}`}>YES</button>
+                            <button onClick={() => handleAnswerChange(q.id, false)} className={`flex-1 py-2.5 rounded-xl border-2 font-bold transition-all ${wizardAnswers[q.id] === false ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-400 border-slate-100'}`}>NO</button>
+                          </div>
+                        ) : (
+                          <input type={q.type} value={wizardAnswers[q.id] || ""} onChange={e => handleAnswerChange(q.id, e.target.value)} className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2.5 text-sm" />
                         )}
-
-                        <span>
-                          Logged:{" "}
-                          {new Date(
-                            warningItem.created_at,
-                          ).toLocaleDateString()}
-                        </span>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    ))}
+                  </div>
+                  <div className="flex gap-3"><button onClick={() => setWizardPhase('DESC')} className="px-6 py-3 border-2 border-slate-100 rounded-xl font-bold text-slate-400">Back</button><button onClick={finalizeQuestions} className="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black uppercase shadow-lg">Finalize Detail</button></div>
+                </div>
+              )}
+
+              {wizardPhase === 'CHARGES' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                  <div className="text-center space-y-2"><h4 className="text-lg font-black text-slate-900">Map Annexure B Charges</h4><p className="text-slate-500 font-medium">Select the official codes that apply. Suggested charges are prioritized.</p></div>
+                  <input type="text" placeholder="Search charges..." value={chargeSearch} onChange={e => setChargeSearch(e.target.value)} className="w-full px-6 py-3 bg-white border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-yellow-600 transition-all" />
+                  <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
+                    {filteredRegistry.map(offence => {
+                      const isSelected = selectedOffences.some(o => o.id === offence.id);
+                      return (
+                        <button key={offence.id} onClick={() => toggleOffence(offence)} className={`p-4 border-2 rounded-2xl text-left transition-all flex items-center justify-between ${isSelected ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-100 hover:border-yellow-600'}`}>
+                          <div className="flex-1"><p className="font-bold text-xs">{offence.desc}</p></div>
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'bg-yellow-600 border-yellow-600' : 'border-slate-100'}`}>{isSelected && <Check size={14} className="text-white" />}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="pt-4 flex gap-3 border-t border-slate-100"><button onClick={() => setWizardPhase('PROBE')} className="px-6 py-3 border-2 border-slate-100 rounded-xl font-bold text-slate-400">Back</button><button onClick={handleGenerateFinalText} disabled={selectedOffences.length === 0} className="flex-1 bg-yellow-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"><Wand2 size={20} /> Generate Narrative</button></div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
+
+      {/* Registry View */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <ModuleWorkspaceHeader title="Disciplinary Registry" description="Professional local engine powered by Annexure B." icon={Gavel} actions={
+            <button onClick={handleStartWizard} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-slate-800 transition-all active:scale-95"><BrainCircuit size={16} /> Legal Engine Wizard</button>
+          }/>
+          <div className="space-y-4">
+            {warningsList.map(warning => (
+              <div key={warning.id} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm border-l-8 border-l-yellow-600 space-y-4 hover:border-slate-300 transition-all relative">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">{warning.warning_level}</h4>
+                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest">Incident: {new Date(warning.incident_date).toLocaleDateString()} • Issued By: {warning.issued_by}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {warning.file_url ? (
+                      <button onClick={() => openAttachment(warning.file_url)} className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-colors border border-emerald-100" title="View Signed Copy"><Download size={16} /></button>
+                    ) : (
+                      <div className="relative group">
+                        <input type="file" onChange={(e) => handleLateUpload(warning.id, e.target.files[0])} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+                        <button className="p-2 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-xl transition-colors border border-yellow-100 flex items-center gap-2 px-3"><FileUp size={16} /><span className="text-[9px] font-black uppercase">Upload Signed</span></button>
+                      </div>
+                    )}
+                    <button className="p-2 bg-rose-50 text-rose-400 hover:text-rose-600 rounded-xl transition-colors border border-rose-100"><Trash2 size={16} /></button>
+                  </div>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-2xl font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-slate-700">{warning.description}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Final Logging Section */}
+        <div className="space-y-6">
+          <SummaryCard title="Logging Workspace" icon={Plus}>
+            {isAdding ? (
+              <form onSubmit={handleFormSubmit} className="space-y-4 animate-in fade-in zoom-in-95">
+                <div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Warning Designation</label>
+                  <select value={warningLevel} onChange={e => setWarningLevel(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm focus:border-yellow-600 outline-none">
+                    <option value="">Select Level...</option>
+                    {Object.values(DISCIPLINARY_LEVELS).map(lvl => <option key={lvl.label} value={lvl.label}>{lvl.label}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="date" value={incidentDate} onChange={e => setIncidentDate(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-3 py-2 text-xs" />
+                  <select value={issuedBy} onChange={e => setIssuedBy(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-3 py-2 text-xs outline-none">
+                    <option value="">Select Authorized Issuer...</option>
+                    {AUTHORIZED_ISSUERS.map(role => <option key={role} value={role}>{role}</option>)}
+                  </select>
+                </div>
+                <textarea rows={12} value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-[11px] font-mono leading-relaxed outline-none focus:border-yellow-600" />
+                <div className="flex flex-col gap-2 pt-2">
+                   <button type="button" onClick={() => setShowFeedbackModal(true)} className="flex items-center justify-center gap-2 text-slate-400 hover:text-yellow-600 transition-colors py-1 group"><MessageSquare size={14} /><span className="font-bold text-[9px] uppercase tracking-widest group-hover:underline">Draft needs correction? Email Stanley</span></button>
+                  <div className="flex gap-2"><button type="button" onClick={() => setIsAdding(false)} className="flex-1 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-bold text-[10px] uppercase">Cancel</button><button type="submit" disabled={isSaving} className="flex-[2] py-2.5 bg-yellow-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg disabled:opacity-50 transition-all active:scale-95">{isSaving ? "Saving..." : "Save Formal Record"}</button></div>
+                </div>
+              </form>
+            ) : (
+              <div className="py-12 text-center space-y-4 px-8 italic text-slate-400 leading-relaxed">Launch the <span className="text-yellow-600 font-bold">Legal Wizard</span> to draft a sound warning using Annexure B charges.</div>
+            )}
+          </SummaryCard>
+        </div>
+      </div>
+
+      {/* 📩 Feedback Modal */}
+      {showFeedbackModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md p-8 space-y-6 shadow-2xl border border-slate-200">
+            <div className="text-center space-y-2"><h4 className="text-lg font-black text-slate-900">Engine Correction</h4><p className="text-slate-500 text-xs font-medium">Explain what was wrong with the generated draft. This will be emailed directly to Stanley.</p></div>
+            <textarea rows={5} value={feedbackNote} onChange={e => setFeedbackNote(e.target.value)} placeholder="e.g. The narrative should include the witness names more prominently..." className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm focus:border-yellow-600 outline-none transition-all" />
+            <div className="flex gap-3"><button onClick={() => setShowFeedbackModal(false)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold transition-all">Cancel</button><button onClick={handleSubmitFeedback} disabled={isSubmittingFeedback || !feedbackNote} className="flex-[2] bg-slate-900 text-white py-3 rounded-xl font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50">{isSubmittingFeedback ? "Dispatching..." : <><Send size={18} /> Notify Stanley</>}</button></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ModuleWorkspaceHeader({ title, description, icon: Icon, actions }) {
+  return (
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 bg-white border border-slate-200 rounded-2xl flex items-center justify-center text-slate-900 shadow-sm"><Icon size={24} /></div>
+        <div>
+          <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase leading-none mb-1">{title}</h2>
+          <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest leading-none">{description}</p>
+        </div>
+      </div>
+      {actions}
     </div>
   );
 }

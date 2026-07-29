@@ -8,7 +8,6 @@ import ModuleWorkspaceHeader from './common/ModuleWorkspaceHeader';
 import { LayoutDashboard, Calendar as CalendarIcon, ClipboardList, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 
 export default function Dashboard({ onNavigateToEmployee }) {
-  const [currentDate, setCurrentDate] = useState(new Date());
   const [allEvents, setAllEvents] = useState([]);
   const [sidebarAgenda, setSidebarAgenda] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -16,23 +15,12 @@ export default function Dashboard({ onNavigateToEmployee }) {
   const [alertsLoading, setAlertsLoading] = useState(false);
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
 
-  const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth(); // 0-11
-
-  // 🗓️ Calendar Math Helpers
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay(); // 0 = Sunday, 1 = Monday, etc.
-  
-  const monthNames = [
-    "January", "February", "March", "April", "May", "June", 
-    "July", "August", "September", "October", "November", "December"
-  ];
-
   const fetchAndAssembleCalendar = async () => {
     try {
       setLoading(true);
+      const currentYear = new Date().getFullYear();
 
-      // 1. Calculate automated South African holidays for the active year context
+      // 1. Calculate automated South African holidays
       const computedHolidays = getSaHolidaysForYear(currentYear).map(holiday => ({
         id: `statutory-${holiday.date}`,
         title: holiday.name,
@@ -41,12 +29,12 @@ export default function Dashboard({ onNavigateToEmployee }) {
         end_date: holiday.date
       }));
 
-      // 2. Fetch custom operational closure rows from Supabase
+      // 2. Fetch custom operational closure rows
       const { data: dbEvents } = await supabase
         .from('calendar_events')
         .select('*');
 
-      // 3. Fetch approved employee leave blocks from database
+      // 3. Fetch approved employee leave blocks
       const { data: leaveSpans } = await supabase
         .from('employee_leave')
         .select(`id, leave_type, start_date, end_date, employees(first_name, last_name)`)
@@ -69,7 +57,7 @@ export default function Dashboard({ onNavigateToEmployee }) {
 
       setAllEvents(masterFeed);
 
-      // 5. Build Sidebar Agenda: Filter for upcoming items spanning the next 30 calendar days
+      // 5. Build Sidebar Agenda: Next 30 days
       const todayStr = new Date().toISOString().split('T')[0];
       const thirtyDaysLater = new Date();
       thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
@@ -89,7 +77,7 @@ export default function Dashboard({ onNavigateToEmployee }) {
 
   useEffect(() => {
     fetchAndAssembleCalendar();
-  }, [currentDate]); // Triggered instantly whenever next/prev month buttons are clicked
+  }, []);
 
   useEffect(() => {
     const fetchEmployeeAlerts = async () => {
@@ -183,85 +171,6 @@ export default function Dashboard({ onNavigateToEmployee }) {
     fetchPendingLeave();
   }, []);
 
-  // Navigation functions for calendar controls
-  const handlePrevMonth = () => {
-    setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
-  };
-
-  const handleNextMonth = () => {
-    setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
-  };
-
- const getEventsForDay = (dayNumber) => {
-  const paddedDay = dayNumber < 10 ? `0${dayNumber}` : dayNumber;
-  const paddedMonth = (currentMonth + 1) < 10 ? `0${currentMonth + 1}` : currentMonth + 1;
-  const targetDateStr = `${currentYear}-${paddedMonth}-${paddedDay}`;
-
-  return allEvents.filter(event => 
-    targetDateStr === event.start_date || 
-    (targetDateStr >= event.start_date && targetDateStr <= event.end_date)
-  );
-};
-
-    // Generate calendar days grid array layout shell
-  const calendarCells = [];
-  
-  // Get today's exact date metrics to check cell matches
-  const now = new Date();
-  const todayDay = now.getDate();
-  const todayMonth = now.getMonth();
-  const todayYear = now.getFullYear();
-
-  // Add empty placeholder blocks for preceding blank month padding spaces
-  for (let i = 0; i < firstDayIndex; i++) {
-    calendarCells.push(<div key={`blank-${i}`} className="bg-slate-50/40 border border-slate-100 min-h-[85px] rounded-lg"></div>);
-  }
-  
-  // Populate actual active month calendar numbers
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dayEvents = getEventsForDay(day);
-    
-    // Check if this specific loop cell matches the actual current calendar day
-    const isToday = day === todayDay && currentMonth === todayMonth && currentYear === todayYear;
-
-    calendarCells.push(
-      <div 
-        key={`day-${day}`} 
-        className={`p-1.5 min-h-[85px] rounded-lg flex flex-col justify-between hover:border-slate-400 transition-all group border ${
-          isToday 
-            ? 'border-yellow-600 border-2 bg-yellow-50/20 shadow-xs ring-1 ring-yellow-600/20' 
-            : 'bg-white border-slate-200'
-        }`}
-      >
-        <div className="flex justify-between items-center">
-          <span className={`font-bold text-[11px] ${
-            isToday ? 'text-yellow-700 bg-yellow-600/10 px-1.5 py-0.5 rounded-sm' : 'text-slate-400 group-hover:text-slate-700'
-          }`}>
-            {day}
-          </span>
-          {isToday && <span className="text-[8px] font-bold uppercase tracking-wider text-yellow-700 animate-pulse">Today</span>}
-        </div>
-
-        <div className="space-y-1 mt-1 flex-1 overflow-y-auto max-h-[55px] no-scrollbar">
-          {dayEvents.map(ev => {
-            // Softened, professional color accents
-            const labelColor = 
-              ev.event_type === 'Public Holiday' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-              ev.event_type === 'Leave Block' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-              'bg-blue-50 text-blue-700 border-blue-200';
-              
-            return (
-              <div key={ev.id} className={`px-1.5 py-0.5 rounded-md border-l-2 truncate font-medium text-[9px] uppercase tracking-tight scale-[0.98] shadow-3xs ${labelColor}`}>
-                {ev.title}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-
   return (
     <div className="space-y-6">
       <ModuleWorkspaceHeader
@@ -270,71 +179,34 @@ export default function Dashboard({ onNavigateToEmployee }) {
         icon={LayoutDashboard}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        <div className="lg:col-span-3">
-          <SummaryCard
-            title={`${monthNames[currentMonth]} ${currentYear}`}
-            icon={CalendarIcon}
-            badge={<div className="flex space-x-1">
-              <button onClick={handlePrevMonth} className="p-1 hover:bg-slate-200 rounded-md transition-colors cursor-pointer text-slate-600"><ChevronLeft size={16} /></button>
-              <button onClick={handleNextMonth} className="p-1 hover:bg-slate-200 rounded-md transition-colors cursor-pointer text-slate-600"><ChevronRight size={16} /></button>
-            </div>}
-          >
-            <div className="space-y-4">
-              <div className="grid grid-cols-7 gap-1 text-center font-bold text-slate-400 text-[10px] uppercase tracking-wider">
-                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
-              {loading ? (
-                <div className="text-center p-12 text-slate-400 italic animate-pulse text-xs">Syncing monthly operations grid matrix...</div>
-              ) : (
-                <div className="grid grid-cols-7 gap-1.5">
-                  {calendarCells}
-                </div>
-              )}
-            </div>
-          </SummaryCard>
-        </div>
-
-        <div className="space-y-6 lg:col-span-1">
-          {pendingLeaveCount > 0 && (
-            <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-lg flex items-center justify-between group hover:bg-slate-800 transition-all cursor-pointer animate-in fade-in slide-in-from-right-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-yellow-600/10 border border-yellow-600/20 flex items-center justify-center text-yellow-600">
-                  <Inbox size={20} />
-                </div>
-                <div className="text-left">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">HR Attention Required</p>
-                  <h4 className="text-sm font-bold text-white leading-none">{pendingLeaveCount} Leave Requests</h4>
-                </div>
-              </div>
-              <ChevronRight size={18} className="text-slate-600 group-hover:text-yellow-600 transition-colors" />
-            </div>
-          )}
-
+        {/* Main Feed: Operational Agenda */}
+        <div className="lg:col-span-2 space-y-6">
           <SummaryCard
             title="Operational Agenda"
             icon={ClipboardList}
+            badge={<span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{sidebarAgenda.length} UPCOMING</span>}
           >
             <div className="space-y-4">
-              <p className="text-slate-400 text-[10px] -mt-1">Rolling 30-day schedule of public holidays, staff leave, and company events.</p>
+              <p className="text-slate-400 text-[11px] -mt-1 font-medium">Next 30 days: Public holidays, approved leave, and company events.</p>
 
               {loading ? (
-                <p className="text-center text-slate-400 italic animate-pulse text-xs">Syncing dynamic runtime schedules...</p>
+                <p className="text-center text-slate-400 italic animate-pulse text-xs py-12">Syncing dynamic runtime schedules...</p>
               ) : sidebarAgenda.length === 0 ? (
-                <div className="text-center p-8 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-xs">
+                <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50 text-xs">
                   Clean schedule. No team items or holidays logged within next 30 days.
                 </div>
               ) : (
-                <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1 no-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {sidebarAgenda.map(item => {
                     const status = item.event_type === 'Public Holiday' ? 'Holiday' : item.event_type === 'Leave Block' ? 'Leave' : 'Event';
 
                     return (
-                      <div key={`sidebar-${item.id}`} className="p-3 border border-slate-100 rounded-lg flex items-center justify-between gap-4 bg-white hover:bg-slate-50 transition-colors shadow-3xs">
+                      <div key={`agenda-${item.id}`} className="p-4 border border-slate-100 rounded-2xl flex items-center justify-between gap-4 bg-white hover:bg-slate-50 transition-all border-l-4 border-l-slate-200 hover:border-l-yellow-600 shadow-3xs">
                         <div className="min-w-0">
-                          <span className="font-semibold text-slate-800 block truncate text-[11px]">{item.title}</span>
-                          <span className="text-[10px] text-slate-400 block font-medium">
+                          <span className="font-bold text-slate-800 block truncate text-xs">{item.title}</span>
+                          <span className="text-[10px] text-slate-400 block font-bold mt-0.5">
                             {item.start_date === item.end_date
                               ? new Date(item.start_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })
                               : `${new Date(item.start_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} - ${new Date(item.end_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}`
@@ -350,8 +222,37 @@ export default function Dashboard({ onNavigateToEmployee }) {
             </div>
           </SummaryCard>
 
+          <div className="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden group">
+            <div className="relative z-10">
+              <h4 className="text-2xl font-black mb-3 text-yellow-500 uppercase tracking-tighter">BCEA Compliance Engine</h4>
+              <p className="text-xs text-slate-400 leading-relaxed max-w-xl font-medium">
+                The Restaurant Operating System (ROS) utilizes a real-time statutory engine. It automatically manages 3-year sick leave cycles, flags 18-month leave expiries, and enforces SA labor law constraints across all branch locations.
+              </p>
+            </div>
+            <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-yellow-600/10 rounded-full blur-3xl group-hover:bg-yellow-600/20 transition-all duration-700"></div>
+          </div>
+        </div>
+
+        {/* Sidebar: Alerts & Follow-ups */}
+        <div className="space-y-6">
+          {pendingLeaveCount > 0 && (
+            <div className="bg-white border-2 border-yellow-600 p-5 rounded-3xl shadow-xl flex items-center justify-between group hover:bg-yellow-50 transition-all cursor-pointer animate-in fade-in slide-in-from-right-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-yellow-600 flex items-center justify-center text-white shadow-lg shadow-yellow-600/20">
+                  <Inbox size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none mb-1.5">Action Required</p>
+                  <h4 className="text-lg font-black text-slate-900 leading-none">{pendingLeaveCount} Pending Requests</h4>
+                </div>
+              </div>
+              <ChevronRight size={20} className="text-slate-400 group-hover:text-yellow-600 transition-all" />
+            </div>
+          )}
+
           <EmployeeFollowUpView compact onNavigateToEmployee={onNavigateToEmployee} />
         </div>
+
       </div>
     </div>
   );

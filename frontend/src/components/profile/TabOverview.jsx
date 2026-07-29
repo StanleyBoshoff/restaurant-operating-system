@@ -27,10 +27,14 @@ export default function TabOverview({ employee, onRefresh }) {
         setLoading(true);
 
         // Fetch document stats for compliance
-        const { data: docs } = await supabase
+        const { data: docs, error: docError } = await supabase
           .from('employee_documents')
-          .select('expiry_date, status, document_type')
+          .select('expiry_date, document_type')
           .eq('employee_id', employee.id);
+
+        if (docError) {
+          console.error('Supabase error fetching employee_documents for overview:', docError);
+        }
 
         const uploadedDocs = docs || [];
         const compliance = calculateCompliance(employee, uploadedDocs);
@@ -49,11 +53,14 @@ export default function TabOverview({ employee, onRefresh }) {
         }, { total: 0, expired: 0, dueSoon: 0 });
 
         // Fetch warning stats
-        const { data: warnings } = await supabase
-          .from('disciplinary_records')
-          .select('warning_level, status')
-          .eq('employee_id', employee.id)
-          .eq('status', 'Active');
+        const { data: warnings, error: warnError } = await supabase
+          .from('employee_warnings')
+          .select('warning_level')
+          .eq('employee_id', employee.id);
+
+        if (warnError) {
+          console.error('Supabase error fetching employee_warnings for overview:', warnError);
+        }
 
         const activeWarnings = warnings || [];
 
@@ -61,7 +68,7 @@ export default function TabOverview({ employee, onRefresh }) {
           documents: { ...docStats, compliance },
           warnings: {
             active: activeWarnings.length,
-            highestLevel: activeWarnings.length > 0 ? 'High' : 'None' // Placeholder logic
+            highestLevel: activeWarnings.length > 0 ? 'Logged' : 'None'
           },
           leave: { available: 15, nextPeriod: null }, // Placeholder
           activity: [] // Placeholder

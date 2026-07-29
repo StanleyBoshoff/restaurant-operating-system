@@ -15,13 +15,14 @@ import TasksWorkspace from './components/tasks/Workspace';
 import ChecklistsWorkspace from './components/checklists/Workspace';
 import FormsWorkspace from './components/forms/Workspace';
 import SafetyWorkspace from './components/safety/Workspace';
+import DisciplinaryWorkspace from './components/disciplinary/Workspace';
 import CommunicationWorkspace from './components/communication/Workspace';
 import ReportsWorkspace from './components/reports/Workspace';
 import SettingsWorkspace from './components/settings/Workspace';
 
 import {
   Users, FileText, Globe, ShieldAlert, BarChart3, Settings,
-  Clock, Calendar, GraduationCap, CheckSquare, ClipboardList, ShieldCheck, MessageSquare
+  Clock, Calendar, GraduationCap, CheckSquare, ClipboardList, ShieldCheck, MessageSquare, Gavel
 } from 'lucide-react';
 
 function AppContent() {
@@ -36,6 +37,7 @@ function AppContent() {
     if (path.startsWith('/employees')) return 'employees';
     if (path.startsWith('/timesheets')) return 'timesheets';
     if (path.startsWith('/leave')) return 'leave';
+    if (path.startsWith('/disciplinary')) return 'disciplinary';
     if (path.startsWith('/training')) return 'training';
     if (path.startsWith('/tasks')) return 'tasks';
     if (path.startsWith('/checklists')) return 'checklists';
@@ -54,6 +56,7 @@ function AppContent() {
     { id: 'employees', name: 'Employees', icon: Users, path: '/employees' },
     { id: 'timesheets', name: 'Timesheets', icon: Clock, path: '/timesheets' },
     { id: 'leave', name: 'Leave', icon: Calendar, path: '/leave' },
+    { id: 'disciplinary', name: 'Disciplinary', icon: Gavel, path: '/disciplinary' },
     { id: 'training', name: 'Training', icon: GraduationCap, path: '/training' },
     { id: 'tasks', name: 'Tasks', icon: CheckSquare, path: '/tasks' },
     { id: 'checklists', name: 'Checklists', icon: ClipboardList, path: '/checklists' },
@@ -132,6 +135,7 @@ function AppContent() {
             <Route path="/employees/:id/*" element={<EmployeeWorkspacePage />} />
             <Route path="/timesheets/*" element={<TimesheetsWorkspace />} />
             <Route path="/leave/*" element={<LeaveWorkspace />} />
+            <Route path="/disciplinary/*" element={<DisciplinaryWorkspace />} />
             <Route path="/training/*" element={<TrainingWorkspace />} />
             <Route path="/tasks/*" element={<TasksWorkspace />} />
             <Route path="/checklists/*" element={<ChecklistsWorkspace />} />

@@ -1,316 +1,93 @@
-# Restaurise
+# Restaurise - Restaurant Operating System (ROS)
 
-## Restaurant Employee Management System (REMS)
-
-A modern cloud-based Employee Management System built specifically for the restaurant and hospitality industry.
-
-Restaurise centralizes employee management, scheduling, workforce administration, compliance, training, documentation and operational workflows into a single platform.
+A professional-grade, industry-specific Employee Management System (EMS) designed for the South African restaurant and hospitality sector. Built to ensure CCMA compliance, operational efficiency, and a paperless workspace.
 
 ---
 
-# Project Status
+# 🚀 Project Status
 
-🚧 Active Development (Phase 1)
+🟢 **Active Development (Phase 2)**
 
-Current focus:
-
-- Core application framework
-- Employee Management Module
-- Navigation architecture
-- Supabase database design
-- Modular system foundation
+Current focus: 
+- ⚖️ **Legal Shield Disciplinary Engine**: A local-first, expert system for drafting bulletproof warnings.
+- 📅 **Statutory Leave Management**: Full South African BCEA compliance engine.
+- 📂 **Cloud Document Vault**: Secure tracking of certified IDs, passports, and employment contracts.
 
 ---
 
-# Vision
+# 🛠️ Core Modules
 
-Create a scalable Restaurant Employee Management System that replaces paper files, spreadsheets and disconnected HR tools with one integrated platform.
+## 1. Disciplinary Management (Golden Ticket)
+The "Legal Shield" is our most advanced feature, acting as an on-demand HR Director.
+- **100% Local Engine**: Works offline with zero dependency on cloud AI for drafting.
+- **Annexure "B" Integration**: Fully mapped to 147 official restaurant industry charges.
+- **Expert Probing**: Context-aware investigation. If a manager types "broke the fryer," the system dynamically asks about SOP training, repair costs, and intent to build a solid legal case.
+- **Store-Proof Workflow**: 
+    - Authorized issuer dropdown (GM, Chef, etc.).
+    - Late scan upload for physical signed copies.
+    - Automated WhatsApp consultation notices to staff.
+- **Central Registry**: Store-wide command center for monitoring all active warnings.
 
-The application is designed around **modules**, allowing multiple developers to work independently while maintaining a consistent user experience.
+## 2. Leave Management
+Full statutory tracking tailored for South African labor laws.
+- **BCEA Compliance**: Real-time calculation of Annual (1.75 days/mo), Sick (3-year cycle), and Family Responsibility leave.
+- **Team Availability Hub**: A centralized 30-day calendar showing staff leave and South African public holidays.
+- **Approval Workflow**: Integrated request queue for management review.
+
+## 3. Employee Directory & Profiles
+The single source of truth for every staff member.
+- **Compliance Tracking**: Real-time alerts for missing documents or upcoming passport/permit expiries.
+- **Unified Workspace**: Tabs for Details, Documents, Warnings, Timesheets, and Performance.
 
 ---
 
-# Technology Stack
+# 🏗️ Technology Stack
 
-## Frontend
-
-- React
-- Vite
-- TailwindCSS
-
-## Backend
-
-- Supabase
-- PostgreSQL
-- Supabase Storage
-- Row Level Security (RLS)
+- **Frontend**: React (Vite), TailwindCSS, Lucide Icons.
+- **Backend**: Supabase (PostgreSQL), Supabase Storage.
+- **Legal Engine**: Local Logic + Narrative Generator (Hardcoded with South African Disciplinary Standards).
+- **Security**: Row Level Security (RLS) for sensitive personnel data.
 
 ---
 
-# Application Architecture
-
-The application follows a modular workspace architecture.
+# 📂 Project Structure
 
 ```
-Sidebar
-    ↓
-Module
-    ↓
-Overview
-    ↓
-Tabs
-    ↓
-Workspace
+frontend/src/
+  ├── components/
+  │   ├── disciplinary/   # Store-wide incident command center
+  │   ├── leave/          # Statutory leave & team calendar
+  │   ├── profile/        # Employee-level detailed tabs
+  │   └── common/         # Reusable UI (SummaryCards, Badges)
+  ├── utils/
+  │   ├── disciplinaryEngine.js  # The "Brain" (Logic & Probes)
+  │   ├── leaveEngine.js         # BCEA calculation logic
+  │   └── notificationService.js # Dispatch simulation (WhatsApp/Email)
+  └── supabaseClient.js  # Database connectivity
 ```
 
-Every major module follows the same layout.
+---
 
-Example:
+# 💡 Vision
 
-```
-Employees
-
-    Overview
-
-    Details
-
-    Employment
-
-    Documents
-
-    Leave
-
-    Attendance
-
-    Timesheets
-
-    Warnings
-
-    Performance
-
-    Training
-
-    Tasks
-
-    Notes
-
-    Audit Log
-```
-
-This architecture keeps navigation consistent throughout the application.
+Restaurise replaces paper files and guesswork with a legally authoritative platform. It is designed to be **"Store-Proof"**—working reliably in the high-pressure environment of a busy kitchen while ensuring the restaurant is protected at the CCMA.
 
 ---
 
-# Current Modules
-
-## Dashboard
-
-Management overview containing company-wide statistics and alerts.
-
-Status:
-
-🟡 In Development
-
----
-
-## Employees (Module 1)
-
-The core of the application.
-
-Handles everything related to individual employees.
-
-### Tabs
-
-- Overview
-- Details
-- Employment
-- Documents
-- Leave
-- Attendance
-- Timesheets
-- Warnings
-- Performance
-- Training
-- Tasks
-- Notes
-- Audit Log
-
-Status:
-
-🟢 Active Development
-
----
-
-## Planned Modules
-
-The following modules have been approved and the framework is being prepared.
-
-### Scheduling
-
-Manage weekly rosters, availability and shift templates.
-
-### Timesheets
-
-Employee clock-in, overtime, payroll exports and labour reporting.
-
-### Leave
-
-Leave requests, balances and approvals.
-
-### Training
-
-Courses, assessments, certificates and knowledge base.
-
-### Tasks
-
-Assign and track operational tasks.
-
-### Checklists
-
-Opening, closing and operational checklists.
-
-### Forms
-
-Digital forms including incidents, maintenance and inspections.
-
-### Health & Safety
-
-Incident management and workplace safety.
-
-### Communication
-
-Announcements, policies and internal communication.
-
-### Reports
-
-Operational and HR reporting.
-
-### Settings
-
-Company configuration.
-
-- Users
-- Roles
-- Permissions
-- Branches
-- Departments
-- Positions
-- Leave Types
-- Warning Types
-- Document Categories
-
----
-
-# Project Structure
-
-```
-src/
-
-components/
-    Dashboard/
-    Employees/
-    Scheduling/
-    Timesheets/
-    Leave/
-    Training/
-    Tasks/
-    Checklists/
-    Forms/
-    HealthSafety/
-    Communication/
-    Reports/
-    Settings/
-
-shared/
-
-hooks/
-
-services/
-
-utils/
-```
-
-Each module is self-contained to support parallel development.
-
----
-
-# Design Principles
-
-- Employee-first architecture
-- Modular development
-- Restaurant-specific workflows
-- Reusable components
-- Scalable database design
-- Mobile responsive
-- Multi-branch ready
-- Cloud native
-- AI-ready
-
----
-
-# Current Development Phase
-
-## Phase 1
-
-✅ Application Shell
-
-✅ Sidebar Navigation
-
-✅ Employee Workspace
-
-✅ Supabase Integration
-
-✅ Responsive Layout
-
-🚧 Employee Module
-
-🚧 Database Expansion
-
----
-
-# Upcoming Development
-
-- Scheduling
-- Timesheets
-- Leave Management
-- Training
-- Tasks
-- Forms
-- Checklists
-- Reports
-- Settings
-
----
-
-# Development Standards
-
-Every new module must include:
-
-- Overview page
-- Tab-based navigation
-- Shared layout
-- Reusable components
-- Role-based permissions
-- Responsive design
-- Supabase integration
-
----
-
-# Long-Term Goal
-
-Build the leading Restaurant Employee Management System for the hospitality industry.
-
-The system should become the single source of truth for every employee by centralizing:
-
-- Employee records
-- Documents
-- Compliance
-- Scheduling
-- Leave
-- Attendance
-- Performance
-- Training
-- Operational tasks
-- Reporting
-
-into one integrated cloud platform.
+# ☁️ Deployment (GitHub)
+
+### Prerequisites
+- Install [Git](https://git-scm.com/)
+- A GitHub account
+
+### Uploading to GitHub
+1. **Initialize Git**: `git init`
+2. **Add Files**: `git add .`
+3. **Commit**: `git commit -m "feat: implement professional disciplinary engine and BCEA leave module"`
+4. **Create Repository**: Go to GitHub.com and create a new repository called `ros-restaurant-system`.
+5. **Connect & Push**:
+   ```bash
+   git remote add origin https://github.com/YOUR_USERNAME/ros-restaurant-system.git
+   git branch -M main
+   git push -u origin main
+   ```

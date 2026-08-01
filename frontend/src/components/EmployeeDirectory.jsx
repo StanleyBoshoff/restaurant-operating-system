@@ -19,9 +19,11 @@ export default function EmployeeDirectory() {
         try {
             const { data, error } = await supabase.from('roles').select('*');
             if (error) throw error;
+            console.log("Successfully loaded roles:", data);
             setDbRoles(data || []);
         } catch(error) {
             console.error("Failed to load roles:", error.message);
+            alert("Database Error: Could not load roles list. Check your Supabase connection or RLS settings.");
         }
     }
 

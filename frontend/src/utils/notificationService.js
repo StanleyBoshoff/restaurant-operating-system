@@ -27,45 +27,6 @@ export const notifyManagerOfLeaveApproval = async (employee, leaveRequest) => {
 };
 
 /**
- * Dispatches engine correction feedback to the administrator.
- */
-export const submitEngineFeedback = async (data) => {
-  const { managerName, originalFacts, generatedDraft, correctionNotes } = data;
-
-  console.log(`[Feedback System] Dispatching correction request to stanleyboshoff@gmail.com`);
-
-  const emailBody = `
-    ENGINE CORRECTION REQUEST
-    FROM: ${managerName}
-
-    ORIGINAL FACTS:
-    ${originalFacts}
-
-    SYSTEM OUTPUT:
-    ${generatedDraft}
-
-    MANAGER NOTES (WHY IT WAS WRONG):
-    ${correctionNotes}
-  `;
-
-  console.log("Email Dispatching:", emailBody);
-
-  // Future: Link to Edge Function for actual email delivery
-  return { success: true };
-};
-
-/**
- * Triggers a disciplinary consultation notice to an employee.
- */
-export const notifyStaffOfDisciplinaryConsultation = async (employee, incidentType) => {
-  const message = `DISCIPLINARY NOTICE: Hi ${employee.first_name}, please see your manager (${employee.manager_name || 'Department Manager'}) for a disciplinary consultation regarding the recent incident (${incidentType || 'General Misconduct'}).`;
-
-  console.log(`[WhatsApp Dispatch Simulation] To: ${employee.phone_number || 'No Phone recorded'} | Message: "${message}"`);
-
-  return { success: true };
-};
-
-/**
  * Triggers a disciplinary consultation notice to an employee.
  */
 export const notifyStaffOfDisciplinaryConsultation = async (employee, incidentType) => {

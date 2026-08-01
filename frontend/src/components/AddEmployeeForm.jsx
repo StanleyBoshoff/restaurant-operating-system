@@ -61,10 +61,30 @@ export default function AddEmployeeForm({ onClose, onRefresh, dbRoles, editingEm
         try {
             setIsSubmitting(true);
 
+            // 🛠️ SANITIZE DATA: Convert empty strings to NULL for date and decimal fields
+            // PostgreSQL will reject "" for DATE or DECIMAL types.
+            const submissionData = { ...formData };
+
+            const nullifyFields = [
+                'start_date',
+                'end_date',
+                'leave_opening_balance_date',
+                'employee_number',
+                'email',
+                'sa_id_number',
+                'leave_opening_balance_annual'
+            ];
+
+            nullifyFields.forEach(field => {
+                if (submissionData[field] === '') {
+                    submissionData[field] = null;
+                }
+            });
+
             if (editingEmployee) {
                 const { error } = await supabase
                   .from('employees')
-                  .update(formData)
+                  .update(submissionData)
                   .eq('id', editingEmployee.id);
 
                   if (error) throw error;
@@ -72,7 +92,7 @@ export default function AddEmployeeForm({ onClose, onRefresh, dbRoles, editingEm
 
                 const { error } = await supabase
                     .from('employees')
-                    .insert([formData]);
+                    .insert([submissionData]);
 
                 if (error) throw error;
             }
@@ -92,10 +112,10 @@ export default function AddEmployeeForm({ onClose, onRefresh, dbRoles, editingEm
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
 
             {/* Floating Popup Card Surface */}
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
 
                 {/* Form Title */}
-                <div className="bg-slate-50 px-4 py-4 border-b border-slate-200 flex items-center justify-between">
+                <div className="bg-slate-50 px-4 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
                     <h3 className="font-bold text-slate-900 text-sm">
                         {editingEmployee ? "Modify Personnel Profile" : "Add New Personnel Profile"}
                         </h3>
@@ -105,7 +125,7 @@ export default function AddEmployeeForm({ onClose, onRefresh, dbRoles, editingEm
                 </div>
 
                 {/* The Data Form Entry Pass */}
-                <form onSubmit={handleSubmit} className="p-4 space-y-3">
+                <form onSubmit={handleSubmit} className="p-4 space-y-3 overflow-y-auto">
 
                     <div>
                         <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">First Name</label>

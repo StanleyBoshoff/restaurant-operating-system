@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { getSaHolidaysForYear } from '../utils/saHolidayEngine';
+import { getOperationalSnapshot } from '../utils/reportingService';
 import EmployeeFollowUpView from './EmployeeFollowUpView';
 import SummaryCard from './common/SummaryCard';
 import StatusBadge from './common/StatusBadge';
 import ModuleWorkspaceHeader from './common/ModuleWorkspaceHeader';
-import { LayoutDashboard, Calendar as CalendarIcon, ClipboardList, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
+import { LayoutDashboard, Calendar as CalendarIcon, ClipboardList, ChevronLeft, ChevronRight, Inbox, Users, Clock, ShieldAlert, CheckSquare } from 'lucide-react';
 
 export default function Dashboard({ onNavigateToEmployee }) {
   const [allEvents, setAllEvents] = useState([]);
@@ -14,6 +15,7 @@ export default function Dashboard({ onNavigateToEmployee }) {
   const [employeeAlerts, setEmployeeAlerts] = useState([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
+  const [snapshot, setSnapshot] = useState({ totalEmployees: 0, onDutyNow: 0, pendingLeave: 0, expiringDocs: 0 });
 
   const fetchAndAssembleCalendar = async () => {
     try {
@@ -75,8 +77,18 @@ export default function Dashboard({ onNavigateToEmployee }) {
     }
   };
 
+  const fetchSnapshot = async () => {
+    try {
+      const data = await getOperationalSnapshot();
+      setSnapshot(data);
+    } catch (err) {
+      console.error("Failed to load operational snapshot:", err);
+    }
+  };
+
   useEffect(() => {
     fetchAndAssembleCalendar();
+    fetchSnapshot();
   }, []);
 
   useEffect(() => {
@@ -172,12 +184,55 @@ export default function Dashboard({ onNavigateToEmployee }) {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-700">
       <ModuleWorkspaceHeader
         title="Management Command Center"
         description="Real-time automated operations and workforce deployment tracking."
         icon={LayoutDashboard}
       />
+
+      {/* 📊 Strategic Stats Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all">
+          <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center text-white">
+            <Users size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Staff</p>
+            <h3 className="text-xl font-black text-slate-900 leading-none">{snapshot.totalEmployees}</h3>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all">
+          <div className="w-12 h-12 bg-yellow-600 rounded-xl flex items-center justify-center text-white">
+            <Clock size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">On Duty Now</p>
+            <h3 className="text-xl font-black text-slate-900 leading-none">{snapshot.onDutyNow}</h3>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all">
+          <div className="w-12 h-12 bg-rose-600 rounded-xl flex items-center justify-center text-white">
+            <ShieldAlert size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Compliance Risks</p>
+            <h3 className="text-xl font-black text-rose-600 leading-none">{snapshot.expiringDocs}</h3>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all">
+          <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white">
+            <CheckSquare size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Tasks Due</p>
+            <h3 className="text-xl font-black text-slate-900 leading-none">08</h3>
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 

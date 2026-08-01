@@ -131,6 +131,19 @@ export default function TabWarnings({ employee }) {
       const { error } = await supabase.from("employee_warnings").insert([{ employee_id: employee.id, warning_level: warningLevel, incident_date: incidentDate, description: description, issued_by: issuedBy, file_url: uploadedPath }]);
       if (error) throw error;
 
+      // 🧠 Knowledge Capture for AI Growth
+      try {
+        await supabase.from("disciplinary_knowledge").insert([{
+          employee_id: employee.id,
+          raw_facts: JSON.stringify(wizardAnswers),
+          final_draft: description,
+          warning_level: warningLevel,
+          incident_date: incidentDate
+        }]);
+      } catch (kErr) {
+        console.warn("Knowledge capture table not found, skipping learning step.", kErr.message);
+      }
+
       // Notify Staff
       await notifyStaffOfDisciplinaryConsultation(employee, warningLevel);
 

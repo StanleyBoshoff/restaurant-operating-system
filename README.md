@@ -6,47 +6,55 @@ A professional-grade, industry-specific Employee Management System (EMS) designe
 
 # 🚀 Project Status
 
-🟢 **Active Development (Phase 2)**
+🟢 **Active Development (Phase 3: Workforce Operations)**
 
-Current focus: 
-- ⚖️ **Legal Shield Disciplinary Engine**: A local-first, expert system for drafting bulletproof warnings.
-- 📅 **Statutory Leave Management**: Full South African BCEA compliance engine.
-- 📂 **Cloud Document Vault**: Secure tracking of certified IDs, passports, and employment contracts.
+The system has transitioned from a data collection tool to a functional **Management Command Center** with real-time operational insights.
+
+Current focus:
+- 🕒 **Time & Attendance Engine**: Functional Live Clocking Terminal and Weekly Attendance Matrix.
+- 📋 **Operational Checklists**: Digital store-readiness protocols (Opening/Closing) with manager sign-off.
+- 💰 **Financial Reconciliation**: Daily Cash-Up and Petty Cash tracking logs.
+- 📈 **Strategic Analytics**: Real-time dashboard stats for labour cost, on-duty staff, and compliance risks.
+- ⚖️ **Legal Shield Disciplinary Engine**: 60% Complete (Expert Registry & Probing active).
+- 📅 **Statutory Leave Management**: 80% Complete (BCEA calculations active).
 
 ---
 
 # 🛠️ Core Modules
 
-## 1. Disciplinary Management (Golden Ticket)
+## 1. Disciplinary Management (Legal Shield)
 The "Legal Shield" is our most advanced feature, acting as an on-demand HR Director.
 - **100% Local Engine**: Works offline with zero dependency on cloud AI for drafting.
 - **Annexure "B" Integration**: Fully mapped to 147 official restaurant industry charges.
-- **Expert Probing**: Context-aware investigation. If a manager types "broke the fryer," the system dynamically asks about SOP training, repair costs, and intent to build a solid legal case.
-- **Store-Proof Workflow**: 
-    - Authorized issuer dropdown (GM, Chef, etc.).
-    - Late scan upload for physical signed copies.
-    - Automated WhatsApp consultation notices to staff.
+- **Expert Probing**: Context-aware investigation build a solid legal case.
 - **Central Registry**: Store-wide command center for monitoring all active warnings.
 
-## 2. Leave Management
-Full statutory tracking tailored for South African labor laws.
-- **BCEA Compliance**: Real-time calculation of Annual (1.75 days/mo), Sick (3-year cycle), and Family Responsibility leave.
-- **Team Availability Hub**: A centralized 30-day calendar showing staff leave and South African public holidays.
-- **Approval Workflow**: Integrated request queue for management review.
+## 2. Workforce Operations
+Real-time tracking of staff and store readiness.
+- **Live Clock Terminal**: Tablet-friendly interface for staff clock-in/out and break recording.
+- **Weekly Matrix**: Manager-level grid for reviewing hours, overtime, and punctuality.
+- **Digital Checklists**: Opening and Closing protocols with mandatory safety items (Gas, Security, Cleanup).
 
-## 3. Employee Directory & Profiles
-The single source of truth for every staff member.
-- **Compliance Tracking**: Real-time alerts for missing documents or upcoming passport/permit expiries.
-- **Unified Workspace**: Tabs for Details, Documents, Warnings, Timesheets, and Performance.
+## 3. Financial & Admin Forms
+Moving store administration from paper to the cloud.
+- **Cash-Up Log**: Daily reconciliation of POS sales, Card EFT, and Payouts with real-time discrepancy alerts.
+- **Incident Registry**: Formal record-keeping for safety, security, or guest events for insurance/CCMA audits.
+
+## 4. Training & Communication
+- **Curriculum Management**: Assign and track mandatory SOP training (BCEA, HACCP, Food Safety).
+- **Broadcast Feed**: Targeted internal store communications with read-receipt tracking.
+
+## 5. Employee Directory & Profiles
+- **UUID Architecture**: Professional, enterprise-grade database structure for multi-branch scalability.
+- **Compliance Tracking**: Real-time alerts for expiring work permits, passports, and missing mandatory documents.
 
 ---
 
 # 🏗️ Technology Stack
 
 - **Frontend**: React (Vite), TailwindCSS, Lucide Icons.
-- **Backend**: Supabase (PostgreSQL), Supabase Storage.
-- **Legal Engine**: Local Logic + Narrative Generator (Hardcoded with South African Disciplinary Standards).
-- **Security**: Row Level Security (RLS) for sensitive personnel data.
+- **Backend**: Supabase (PostgreSQL), UUID-based relational model.
+- **Analytics**: Custom-built `reportingService` for operational business intelligence.
 
 ---
 
@@ -55,16 +63,32 @@ The single source of truth for every staff member.
 ```
 frontend/src/
   ├── components/
-  │   ├── disciplinary/   # Store-wide incident command center
-  │   ├── leave/          # Statutory leave & team calendar
-  │   ├── profile/        # Employee-level detailed tabs
-  │   └── common/         # Reusable UI (SummaryCards, Badges)
+  │   ├── disciplinary/   # Legal Shield command center
+  │   ├── leave/          # Statutory leave & calendar
+  │   ├── timesheets/     # Live clock & weekly matrix
+  │   ├── checklists/     # Opening/Closing protocols
+  │   ├── forms/          # Cash-Up & Incident logs
+  │   ├── training/       # Curriculum & assessments
+  │   ├── communication/  # Broadcast & receipts
+  │   └── reports/        # Analytics & business intelligence
   ├── utils/
-  │   ├── disciplinaryEngine.js  # The "Brain" (Logic & Probes)
-  │   ├── leaveEngine.js         # BCEA calculation logic
-  │   └── notificationService.js # Dispatch simulation (WhatsApp/Email)
+  │   ├── reportingService.js    # The Intelligence Brain
+  │   ├── timesheetService.js    # Attendance logic
+  │   ├── disciplinaryEngine.js  # Legal expert logic
+  │   └── leaveEngine.js         # BCEA calculation logic
   └── supabaseClient.js  # Database connectivity
 ```
+
+---
+
+# 🗄️ Database Deployment
+
+The system is powered by a blueprint-compliant PostgreSQL schema. For new client installations or environment resets, use the provided master script:
+
+`supabase_schema.sql` (Located in project root)
+
+> [!IMPORTANT]
+> The database uses **UUIDs** for all identifiers. When deploying, ensure the `uuid-ossp` extension is enabled in Supabase.
 
 ---
 
@@ -76,18 +100,10 @@ Restaurise replaces paper files and guesswork with a legally authoritative platf
 
 # ☁️ Deployment (GitHub)
 
-### Prerequisites
-- Install [Git](https://git-scm.com/)
-- A GitHub account
-
 ### Uploading to GitHub
-1. **Initialize Git**: `git init`
-2. **Add Files**: `git add .`
-3. **Commit**: `git commit -m "feat: implement professional disciplinary engine and BCEA leave module"`
-4. **Create Repository**: Go to GitHub.com and create a new repository called `ros-restaurant-system`.
-5. **Connect & Push**:
+1. **Stage Changes**: `git add .`
+2. **Commit**: `git commit -m "feat: implement Phase 3 Operations and Phase 4 Analytics with UUID architecture"`
+3. **Connect & Push**:
    ```bash
-   git remote add origin https://github.com/YOUR_USERNAME/ros-restaurant-system.git
-   git branch -M main
    git push -u origin main
    ```

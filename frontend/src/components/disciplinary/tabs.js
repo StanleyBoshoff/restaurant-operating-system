@@ -1,4 +1,4 @@
-import { Gavel, History, BarChart3 } from 'lucide-react';
+import { BarChart3, History } from 'lucide-react';
 
 export const DISCIPLINARY_TABS = [
   { id: 'overview', label: 'Store Overview', path: '', icon: BarChart3 },

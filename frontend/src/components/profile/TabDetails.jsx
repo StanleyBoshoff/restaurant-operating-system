@@ -6,7 +6,7 @@ import { canViewSensitiveField } from '../../utils/permissionService';
 export default function TabDetails({ employee, dbRoles = [], onProfileUpdated }) {
     // In a real app, this comes from an Auth Context.
     // Mocking for Phase 3/4 testing.
-    const currentUser = { role_data: { authority_level: 1 } };
+    const currentUser = { role_data: { authority_level: 10 } };
 
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);

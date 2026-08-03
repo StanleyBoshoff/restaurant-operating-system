@@ -11,7 +11,7 @@ import { requiresProof } from '../../utils/notificationService';
 import SummaryCard from '../common/SummaryCard';
 import StatusBadge from '../common/StatusBadge';
 import { Calendar, FileUp, Info, AlertCircle, TrendingUp, Download } from 'lucide-react';
-import LeaveReportViewer from '../leave/LeaveReportViewer';
+import LeaveReportViewer from '../reports/LeaveReportViewer';
 import { getCustomLeaveReport } from '../../utils/reportingService';
 
 export default function TabLeave({ employee }) {

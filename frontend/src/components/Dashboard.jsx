@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { getSaHolidaysForYear } from '../utils/saHolidayEngine';
 import { getOperationalSnapshot } from '../utils/reportingService';
+import { canDo } from '../utils/permissionService';
 import EmployeeFollowUpView from './EmployeeFollowUpView';
 import SummaryCard from './common/SummaryCard';
 import StatusBadge from './common/StatusBadge';
@@ -202,6 +203,19 @@ export default function Dashboard({ onNavigateToEmployee }) {
     fetchPendingLeave();
   }, []);
 
+  // Mock current user for permission check (Replace with real Auth user later)
+  const currentUser = {
+    role_data: { authority_level: 10 } // Master Tech bypass
+  };
+
+  // Logic to determine which quick actions to show
+  const quickActions = [
+    { id: 'can_edit_personnel', label: 'Add New Employee', desc: 'Create personnel profile', icon: UserPlus, color: 'blue', path: '/employees' },
+    { id: 'can_submit_forms', label: 'Create Broadcast', desc: 'Send message to team', icon: Megaphone, color: 'yellow', path: '/communication/announcements' },
+    { id: 'can_submit_forms', label: 'Log Incident', desc: 'Record safety event', icon: ShieldAlert, color: 'rose', path: '/forms/incident' },
+    { id: 'can_submit_forms', label: 'Daily Cash-Up', desc: 'Financial reconciliation', icon: FileText, color: 'emerald', path: '/forms/cash-up' }
+  ].filter(action => canDo(currentUser, action.id));
+
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
       <ModuleWorkspaceHeader
@@ -209,6 +223,7 @@ export default function Dashboard({ onNavigateToEmployee }) {
         description="Real-time automated operations and workforce deployment tracking."
         icon={LayoutDashboard}
         actions={
+          quickActions.length > 0 && (
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setIsQuickActionOpen(!isQuickActionOpen)}
@@ -225,49 +240,26 @@ export default function Dashboard({ onNavigateToEmployee }) {
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Store Operations</span>
                 </div>
                 <div className="p-1">
-                  <button onClick={() => navigate('/employees')} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-left group">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-3xs group-hover:scale-110 transition-transform">
-                      <UserPlus size={16} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-slate-700">Add New Employee</p>
-                      <p className="text-[9px] text-slate-400 font-medium">Create personnel profile</p>
-                    </div>
-                  </button>
-
-                  <button onClick={() => navigate('/communication/announcements')} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-left group">
-                    <div className="w-8 h-8 rounded-lg bg-yellow-50 border border-yellow-100 flex items-center justify-center text-yellow-600 shadow-3xs group-hover:scale-110 transition-transform">
-                      <Megaphone size={16} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-slate-700">Create Broadcast</p>
-                      <p className="text-[9px] text-slate-400 font-medium">Send message to team</p>
-                    </div>
-                  </button>
-
-                  <button onClick={() => navigate('/forms/incident')} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-left group">
-                    <div className="w-8 h-8 rounded-lg bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shadow-3xs group-hover:scale-110 transition-transform">
-                      <ShieldAlert size={16} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-slate-700">Log Incident</p>
-                      <p className="text-[9px] text-slate-400 font-medium">Record safety event</p>
-                    </div>
-                  </button>
-
-                  <button onClick={() => navigate('/forms/cash-up')} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-left group">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-3xs group-hover:scale-110 transition-transform">
-                      <FileText size={16} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-slate-700">Daily Cash-Up</p>
-                      <p className="text-[9px] text-slate-400 font-medium">Financial reconciliation</p>
-                    </div>
-                  </button>
+                  {quickActions.map(action => (
+                    <button
+                      key={action.label}
+                      onClick={() => navigate(action.path)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-left group"
+                    >
+                      <div className={`w-8 h-8 rounded-lg bg-${action.color}-50 border border-${action.color}-100 flex items-center justify-center text-${action.color}-600 shadow-3xs group-hover:scale-110 transition-transform`}>
+                        <action.icon size={16} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs font-bold text-slate-700">{action.label}</p>
+                        <p className="text-[9px] text-slate-400 font-medium">{action.desc}</p>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
           </div>
+          )
         }
       />
 

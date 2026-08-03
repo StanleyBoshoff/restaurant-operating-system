@@ -27,9 +27,23 @@ import {
 
 function AppContent() {
   const [companyName] = useState("Restaurise");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Update sidebar state if window is resized to desktop/mobile breakpoints
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setSidebarOpen(true);
+      } else {
+        setSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const getActiveModule = () => {
     const path = location.pathname;
@@ -84,7 +98,7 @@ function AppContent() {
       />
 
       <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out ${
-        sidebarOpen ? 'md:pl-64 pl-0' : 'md:pl-16 pl-0'
+        sidebarOpen ? 'md:pl-48 pl-0' : 'md:pl-16 pl-0'
       }`}>
         
         <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-30 shadow-sm transition-all">

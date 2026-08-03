@@ -102,14 +102,14 @@ export default function TabPositions() {
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Authority Level (1-6)</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Authority Level (1-10)</label>
               <select
                 value={editingPos.authority_level}
                 onChange={e => setEditingPos({...editingPos, authority_level: parseInt(e.target.value)})}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold outline-none"
               >
-                {Object.entries(AUTHORITY_LEVELS).map(([key, val]) => (
-                  <option key={val} value={val}>Level {val} ({key})</option>
+                {[...Array(10)].map((_, i) => (
+                  <option key={10-i} value={10-i}>Level {10-i} {10-i === 10 ? '(Admin)' : 10-i === 1 ? '(Entry)' : ''}</option>
                 ))}
               </select>
             </div>

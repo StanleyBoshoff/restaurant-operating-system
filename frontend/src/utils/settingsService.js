@@ -45,3 +45,25 @@ export const updateRolePermissions = async (roleId, permissions) => {
   if (error) throw error;
   return data;
 };
+
+/**
+ * 10-Level Matrix Operations
+ */
+
+export const getAllAuthorityLevels = async () => {
+  const { data, error } = await supabase
+    .from('authority_levels')
+    .select('*')
+    .order('level', { ascending: false });
+
+  if (error) throw error;
+  return data;
+};
+
+export const saveAuthorityMatrix = async (matrixData) => {
+  const { error } = await supabase
+    .from('authority_levels')
+    .upsert(matrixData);
+
+  if (error) throw error;
+};

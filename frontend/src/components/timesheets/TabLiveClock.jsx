@@ -13,6 +13,7 @@ export default function TabLiveClock() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isOnLeaveToday, setIsOnLeaveToday] = useState(false);
 
   // Update clock every second
   useEffect(() => {
@@ -40,8 +41,22 @@ export default function TabLiveClock() {
   const loadActiveShift = async (employeeId) => {
     setLoading(true);
     try {
+      // Check for active shift
       const shift = await getActiveTimesheet(employeeId);
       setActiveShift(shift);
+
+      // Check for approved leave today
+      const today = new Date().toISOString().split('T')[0];
+      const { data: leave } = await supabase
+        .from('employee_leave')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .eq('status', 'Approved')
+        .lte('start_date', today)
+        .gte('end_date', today);
+
+      setIsOnLeaveToday(leave && leave.length > 0);
+
     } catch (err) {
       console.error("Failed to load shift:", err);
     } finally {
@@ -156,13 +171,23 @@ export default function TabLiveClock() {
         <SummaryCard
           title="Terminal Display"
           icon={Timer}
-          badge={<StatusBadge status={activeShift?.status || 'Offline'} />}
+          badge={<StatusBadge status={isOnLeaveToday ? 'On Approved Leave' : (activeShift?.status || 'Offline')} />}
         >
           {!selectedEmployee ? (
             <div className="py-20 flex flex-col items-center justify-center text-center opacity-40">
               <User size={48} className="text-slate-200 mb-4" />
               <h4 className="text-sm font-bold text-slate-800">Please Select an Employee</h4>
               <p className="text-[10px] text-slate-400 max-w-xs">Select your name from the registry on the left to access the clocking terminal.</p>
+            </div>
+          ) : isOnLeaveToday ? (
+            <div className="py-20 flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 bg-rose-50 rounded-3xl flex items-center justify-center text-rose-600 mb-4 shadow-inner border border-rose-100">
+                <Lock size={32} />
+              </div>
+              <h4 className="text-sm font-black text-slate-900 uppercase">Clocking Restricted</h4>
+              <p className="text-[10px] text-slate-400 max-w-xs mt-2 font-medium">
+                You are currently on approved statutory leave. Terminal access is disabled until your scheduled return date.
+              </p>
             </div>
           ) : (
             <div className="py-8 space-y-8">

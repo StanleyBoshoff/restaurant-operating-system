@@ -9,7 +9,6 @@ import { LEAVE_TABS } from './tabs';
 import TabOverview from './TabOverview';
 import TabRequests from './TabRequests';
 import TabCalendar from './TabCalendar';
-import TabReports from './TabReports';
 
 export default function Workspace() {
   return (
@@ -30,7 +29,6 @@ export default function Workspace() {
           <Route path="/" element={<TabOverview />} />
           <Route path="requests" element={<TabRequests />} />
           <Route path="calendar" element={<TabCalendar />} />
-          <Route path="reports" element={<TabReports />} />
         </Routes>
       </div>
     </div>

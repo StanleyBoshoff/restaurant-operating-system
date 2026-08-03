@@ -16,15 +16,41 @@ CREATE TABLE IF NOT EXISTS roles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     role_name TEXT UNIQUE NOT NULL,
     classification TEXT,
-    authority_level INTEGER DEFAULT 6,
+    authority_level INTEGER DEFAULT 1, -- 10: Admin, 9: Boss, ..., 1: Entry
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Authority Levels & Master Permission Matrix
+CREATE TABLE IF NOT EXISTS authority_levels (
+    level INTEGER PRIMARY KEY, -- 1 to 10
     permissions JSONB DEFAULT '{
         "can_access_settings": false,
         "can_view_salary": false,
         "can_manage_disciplinary": false,
         "can_approve_leave": false,
-        "can_view_all_staff": false
+        "can_view_all_staff": false,
+        "can_edit_personnel": false,
+        "can_delete_personnel": false,
+        "can_view_financial_reports": false,
+        "can_export_data": false,
+        "can_edit_attendance_register": false,
+        "can_edit_committed_timesheets": false,
+        "can_edit_terminal_records": false
     }',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Company Payroll Settings
+CREATE TABLE IF NOT EXISTS company_payroll_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    auto_deduct_lunch BOOLEAN DEFAULT TRUE,
+    lunch_duration_mins INTEGER DEFAULT 60,
+    break_threshold_hrs INTEGER DEFAULT 5,
+    sunday_multiplier DECIMAL(3,2) DEFAULT 1.5,
+    holiday_multiplier DECIMAL(3,2) DEFAULT 2.0,
+    auto_clock_out_hrs INTEGER DEFAULT 12,
+    shift_end_cutoff_time TIME DEFAULT '23:59:59',
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Employees
@@ -33,9 +59,9 @@ CREATE TABLE IF NOT EXISTS employees (
     employee_number TEXT UNIQUE,
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
-    role_id UUID REFERENCES roles(id),
+    role_id UUID REFERENCES roles(id) ON DELETE SET NULL,
     role TEXT,
-    reports_to_id UUID REFERENCES employees(id),
+    reports_to_id UUID REFERENCES employees(id) ON DELETE SET NULL,
     branch TEXT,
     department TEXT,
     employment_type TEXT,
@@ -65,13 +91,33 @@ CREATE TABLE IF NOT EXISTS employee_timesheets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
     branch_id TEXT,
+    shift_date DATE,
     clock_in TIMESTAMP WITH TIME ZONE NOT NULL,
     clock_out TIMESTAMP WITH TIME ZONE,
     break_start TIMESTAMP WITH TIME ZONE,
     break_end TIMESTAMP WITH TIME ZONE,
+    notes TEXT,
+    is_committed BOOLEAN DEFAULT FALSE,
+    record_source TEXT DEFAULT 'Manual', -- 'Terminal', 'Manual'
+    auto_clocked_out BOOLEAN DEFAULT FALSE,
     status TEXT DEFAULT 'Active',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT unique_emp_day_shift UNIQUE (employee_id, shift_date)
 );
+
+-- Indices & Triggers for Integrity
+CREATE OR REPLACE FUNCTION sync_shift_date()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.shift_date := (NEW.clock_in AT TIME ZONE 'UTC')::date;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_sync_shift_date ON employee_timesheets;
+CREATE TRIGGER trg_sync_shift_date
+BEFORE INSERT OR UPDATE OF clock_in ON employee_timesheets
+FOR EACH ROW EXECUTE FUNCTION sync_shift_date();
 
 -- Statutory Leave
 CREATE TABLE IF NOT EXISTS employee_leave (
@@ -134,7 +180,7 @@ CREATE TABLE IF NOT EXISTS employee_warnings (
 -- AI Learning (Knowledge Base)
 CREATE TABLE IF NOT EXISTS disciplinary_knowledge (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    employee_id UUID REFERENCES employees(id),
+    employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
     raw_facts JSONB,
     final_draft TEXT,
     warning_level TEXT,

@@ -1,11 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, MapPin, Briefcase, ChevronLeft, Zap, Edit, FileUp, Calendar, AlertCircle, Clock, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { canDo } from '../../utils/permissionService';
 
 export default function EmployeeProfileHeader({ employee }) {
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef(null);
+
+    // Mock current user for permission check (Replace with real Auth user later)
+    const currentUser = {
+        role_data: { authority_level: 10 } // Master Tech bypass
+    };
 
     // Close menu when clicking outside
     useEffect(() => {
@@ -21,12 +27,12 @@ export default function EmployeeProfileHeader({ employee }) {
     if (!employee) return null;
 
     const quickActions = [
-        { label: 'Edit Profile', icon: Edit, path: 'details', color: 'text-blue-600' },
-        { label: 'Upload Document', icon: FileUp, path: 'documents', color: 'text-emerald-600' },
-        { label: 'Issue Warning', icon: AlertCircle, path: 'warnings', color: 'text-rose-600' },
-        { label: 'Log Leave', icon: Calendar, path: 'leave', color: 'text-amber-600' },
-        { label: 'Timesheets', icon: Clock, path: 'time-attendance', color: 'text-indigo-600' },
-    ];
+        { id: 'can_edit_personnel', label: 'Edit Profile', icon: Edit, path: 'details', color: 'text-blue-600' },
+        { id: 'can_submit_forms', label: 'Upload Document', icon: FileUp, path: 'documents', color: 'text-emerald-600' },
+        { id: 'can_launch_wizard', label: 'Issue Warning', icon: AlertCircle, path: 'warnings', color: 'text-rose-600' },
+        { id: 'can_approve_leave', label: 'Log Leave', icon: Calendar, path: 'leave', color: 'text-amber-600' },
+        { id: 'can_view_timesheets', label: 'Timesheets', icon: Clock, path: 'time-attendance', color: 'text-indigo-600' },
+    ].filter(action => canDo(currentUser, action.id));
 
     return (
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-6">
@@ -80,6 +86,7 @@ export default function EmployeeProfileHeader({ employee }) {
                         </div>
                     </div>
 
+                    {quickActions.length > 0 && (
                     <div className="flex items-center gap-2 relative" ref={menuRef}>
                         <button
                             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -115,6 +122,7 @@ export default function EmployeeProfileHeader({ employee }) {
                             </div>
                         )}
                     </div>
+                    )}
                 </div>
             </div>
         </div>

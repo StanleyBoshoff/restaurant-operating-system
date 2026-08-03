@@ -6,50 +6,47 @@ A professional-grade, industry-specific Employee Management System (EMS) designe
 
 # 🚀 Project Status
 
-🟢 **Active Development (Phase 4: Advanced Reporting & Intelligence)**
+🟢 **Active Development (Phase 4: Advanced Intelligence & Enforcement)**
 
-The system has matured from a data collection tool into a powerful **Management Command Center** and **Legal Defense Platform**.
+The system has matured into a legally authoritative **Management Command Center** with automated statutory enforcement.
 
 Current focus:
-- 🛡️ **CCMA Legal Defense Bundle**: Specialized high-stakes reporting (AWOL Audits, Refusal Proof, 3-Year Sick Cycle Tracking).
-- 🏛️ **Dynamic Hierarchy Engine**: 6-level authority system (Admin to Staff) with granular permissions and departmental isolation.
-- 📈 **Full Statutory Reporting Suite**: 17+ automated reports including Leave Liability (Rand-value), TOIL Balances, and Medical Certificate Logs.
-- 🕒 **Workforce Operations**: Live Clocking Terminal, Weekly Attendance Matrix, and Digital Store-Readiness Checklists.
+- 🕒 **BCEA Payroll Engine**: Automated 5-hour rule (meal intervals), Sunday 1.5x/Double rates, and Public Holiday multipliers.
+- 📅 **Integrated Attendance Register**: High-density 21st-20th cycle grid with **Real-Time Autosave** and **Live Clock Terminal sync**.
+- 🛡️ **Security Matrix (10 Levels)**: Inverted hierarchy (Lvl 10 = Master Tech) with granular control over 40+ system abilities.
+- 🔒 **Leave Enforcement**: Automated blocking of terminal clock-ins during approved leave and read-only protection for terminal records.
+- 📈 **CCMA Legal Defense Bundle**: Audit-ready evidence reports (AWOL Audits, Sick Cycle tracking, Operational Density).
 - ⚖️ **Legal Shield Disciplinary Engine**: 60% Complete (Expert Registry & Probing active).
-- 📅 **Statutory Leave Management**: 90% Complete (Connected Calendar, Individual Master Packs, and BCEA logic active).
 
 ---
 
 # 🛠️ Core Modules
 
-## 1. Hierarchy & Access Control (New)
-Enterprise-grade security architecture for multi-branch scalability.
-- **6-Level Authority**: Defined roles from Admin (Lvl 1) to Staff (Lvl 6).
-- **Granular Permissions**: Matrix-based control over sensitive data like salary, disciplinary records, and system settings.
-- **Reporting Chain**: Live organizational chart linking staff to direct managers for departmental isolation.
+## 1. Time & Attendance (BCEA Automated)
+Total synchronization between the tablet terminal and payroll records.
+- **Smart Monthly Register**: Automatically generates the 21st-20th cycle with weekly aggregates and statutory leave indicators.
+- **Background Autosave**: Zero-work-loss interaction; data syncs to the cloud instantly as you move between fields.
+- **Integrity Protection**: Two-stage "Save Draft vs. Commit" workflow. Once committed, records are locked for management.
+- **Terminal Guard**: High-fidelity records from the tablet are protected from unauthorized manager edits.
 
-## 2. Advanced Statutory Reporting
+## 2. Security & Authority Matrix
+A professional, high-density permissions grid for enterprise-grade control.
+- **10-Level Hierarchy**: Inverted logic where higher numbers represent higher authority (Lvl 10 = Master Technician).
+- **Master Technician (Lvl 10)**: Reserved for setup and bypass-level system maintenance.
+- **Granular Visibility**: Features are physically removed from the UI if a user's level is not authorized, ensuring a clean workspace.
+
+## 3. Advanced Statutory Reporting
 Audit-ready data generation for owners, HR, and legal counsel.
-- **Legal Defense Bundle**: Specialized templates to protect the business at the CCMA (AWOL Audits, Sick Cycle Progress).
-- **Financial Analytics**: Real-time Rand-value Leave Liability reporting and Labour Cost metrics.
-- **Individual Master Packs**: One-click generation of a staff member's entire statutory history and balances.
-- **Custom Builder**: Bespoke report generation with multi-parameter filtering and CSV export.
+- **Legal Defense Bundle**: Proof-of-refusal, AWOL audits, and 36-month sick cycle exhaustion reports.
+- **Financial Analytics**: Real-time Rand-value Leave Liability reporting and individual Master Statutory Packs.
 
-## 3. Workforce Operations
-Real-time tracking of staff and store readiness.
-- **Live Clock Terminal**: Tablet-optimized interface for clock-in/out and break management.
+## 4. Workforce Operations
 - **Connected Calendar**: Unified store availability matrix with continuous leave bars and lane-based vertical slotting.
 - **Digital Checklists**: Opening/Closing protocols with mandatory safety items and manager sign-off.
 
-## 4. Disciplinary Management (Legal Shield)
-The "Legal Shield" acting as an on-demand HR Director.
+## 5. Disciplinary Management (Legal Shield)
 - **Annexure "B" Integration**: Fully mapped to 147 official restaurant industry charges.
 - **Expert Probing**: Context-aware investigation to build solid procedural evidence.
-- **Central Registry**: Store-wide command center for monitoring all active warnings.
-
-## 5. Employee Directory & Profiles
-- **UUID Architecture**: Professional relational model for high-integrity data management.
-- **Compliance Tracking**: Real-time alerts for expiring permits, passports, and missing mandatory documents.
 
 ---
 
@@ -57,24 +54,24 @@ The "Legal Shield" acting as an on-demand HR Director.
 
 - **Frontend**: React (Vite), TailwindCSS, Lucide Icons.
 - **Backend**: Supabase (PostgreSQL), UUID-based relational model.
-- **Analytics**: Custom-built `reportingService` for operational business intelligence.
+- **Calculations**: Custom BCEA Statutory Engine.
 
 ---
 
 # 🗄️ Database Deployment
 
-The system is powered by a blueprint-compliant PostgreSQL schema. For new installations or environment resets, use the stable idempotent script:
+The system uses a blueprint-compliant PostgreSQL schema. For new installations, use:
 
 `supabase_schema.sql` (Located in project root)
 
 > [!IMPORTANT]
-> The database uses **UUIDs** for all identifiers. Ensure the `uuid-ossp` extension is enabled in Supabase before deployment.
+> Ensure the `uuid-ossp` extension is enabled in Supabase. The system now uses automated triggers for `shift_date` synchronization.
 
 ---
 
 # 💡 Vision
 
-Restaurise replaces paper files and guesswork with a legally authoritative platform. It is designed to be **"Store-Proof"**—working reliably in the high-pressure environment of a busy kitchen while ensuring the restaurant is protected at the CCMA.
+Restaurise replaces paper files with a legally "Store-Proof" platform. It is designed to work reliably in a busy kitchen while ensuring the restaurant is 100% protected at the CCMA.
 
 ---
 
@@ -82,7 +79,7 @@ Restaurise replaces paper files and guesswork with a legally authoritative platf
 
 ### Uploading to GitHub
 1. **Stage Changes**: `git add .`
-2. **Commit**: `git commit -m "feat: implement individual reporting, CCMA defense bundle, and dynamic hierarchy"`
+2. **Commit**: `git commit -m "feat: implement advanced payroll engine, autosave attendance, and 10-level security matrix"`
 3. **Connect & Push**:
    ```bash
    git push -u origin main

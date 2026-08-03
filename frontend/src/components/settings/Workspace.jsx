@@ -15,6 +15,7 @@ import TabEmploymentTypes from './TabEmploymentTypes';
 import TabLeaveTypes from './TabLeaveTypes';
 import TabWarningTypes from './TabWarningTypes';
 import TabDocumentTypes from './TabDocumentTypes';
+import TabPayroll from './TabPayroll';
 import TabTrainingCategories from './TabTrainingCategories';
 import TabNotifications from './TabNotifications';
 import TabSystem from './TabSystem';
@@ -42,6 +43,7 @@ export default function Workspace() {
           <Route path="leave-types" element={<TabLeaveTypes />} />
           <Route path="warning-types" element={<TabWarningTypes />} />
           <Route path="document-types" element={<TabDocumentTypes />} />
+          <Route path="payroll" element={<TabPayroll />} />
           <Route path="training-categories" element={<TabTrainingCategories />} />
           <Route path="notifications" element={<TabNotifications />} />
           <Route path="system" element={<TabSystem />} />

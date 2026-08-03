@@ -9,6 +9,7 @@ import { TIMESHEET_TABS } from './tabs';
 import TabOverview from './TabOverview';
 import TabLiveClock from './TabLiveClock';
 import TabWeekly from './TabWeekly';
+import TabMonthlyRegister from './TabMonthlyRegister';
 import TabApprovals from './TabApprovals';
 import TabPayrollExport from './TabPayrollExport';
 import TabReports from './TabReports';
@@ -32,6 +33,7 @@ export default function Workspace() {
           <Route path="/" element={<TabOverview />} />
           <Route path="live-clock" element={<TabLiveClock />} />
           <Route path="weekly" element={<TabWeekly />} />
+          <Route path="monthly-register" element={<TabMonthlyRegister />} />
           <Route path="approvals" element={<TabApprovals />} />
           <Route path="payroll-export" element={<TabPayrollExport />} />
           <Route path="reports" element={<TabReports />} />

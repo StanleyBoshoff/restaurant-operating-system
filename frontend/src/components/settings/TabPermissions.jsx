@@ -1,34 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import SummaryCard from '../common/SummaryCard';
-import { ShieldCheck, Save, Check, X, AlertCircle } from 'lucide-react';
-import { getPositions, updateRolePermissions } from '../../utils/settingsService';
+import { ShieldCheck, Save, Check, X, AlertCircle, Lock, Users, Wallet, ClipboardList, Gavel, BarChart3, Settings } from 'lucide-react';
+import { getAllAuthorityLevels, saveAuthorityMatrix } from '../../utils/settingsService';
 
-const PERMISSION_KEYS = [
-  { id: 'can_access_settings', label: 'Access System Settings', desc: 'Allow user to change roles, permissions and system config.' },
-  { id: 'can_view_salary', label: 'View Salary / Wages', desc: 'Allow viewing sensitive financial data in profiles.' },
-  { id: 'can_manage_disciplinary', label: 'Manage Disciplinary', desc: 'Access to Legal Shield wizard and records.' },
-  { id: 'can_approve_leave', label: 'Approve Leave Requests', desc: 'Authorize or reject staff leave blocks.' },
-  { id: 'can_view_all_staff', label: 'Cross-Department Visibility', desc: 'See staff outside of own assigned department.' },
+const ABILITIES = [
+  { group: 'Personnel & Finance', icon: Users, items: [
+    { id: 'can_view_all_staff', label: 'View All Staff Profiles', desc: 'Allow visibility of employees outside own department.' },
+    { id: 'can_edit_personnel', label: 'Modify Staff Details', desc: 'Edit contact info, roles and employment dates.' },
+    { id: 'can_delete_personnel', label: 'Delete Staff Profile', desc: 'Permanently remove personnel records (High Risk).' },
+    { id: 'can_view_salary', label: 'View Salary / Wages', desc: 'Visibility of financial compensation data.' },
+    { id: 'can_edit_salary', label: 'Modify Salary / Wages', desc: 'Ability to update pay rates and salaries.' },
+    { id: 'can_view_bank_details', label: 'View Bank Details', desc: 'Access to employee banking and tax information.' },
+  ]},
+  { group: 'Operations & Attendance', icon: ClipboardList, items: [
+    { id: 'can_view_timesheets', label: 'View Timesheet Registry', desc: 'Access to store-wide attendance logs.' },
+    { id: 'can_export_payroll', label: 'Export Payroll Data', desc: 'Download CSV/PDF reports for payroll processing.' },
+    { id: 'can_manage_checklists', label: 'Manage Checklists', desc: 'Define and clear store operational protocols.' },
+    { id: 'can_submit_forms', label: 'Submit Admin Forms', desc: 'Log Incidents, Cash-Ups and Temp Logs.' },
+    { id: 'can_edit_attendance_register', label: 'Edit Attendance Register', desc: 'Modify hours in the monthly payroll grid.' },
+    { id: 'can_edit_committed_timesheets', label: 'Unlock Committed Timesheets', desc: 'Modify records already finalized for payroll (HR Level).' },
+    { id: 'can_edit_terminal_records', label: 'Edit Terminal Clockings', desc: 'Override high-integrity data from the Live Clock (Audit Risk).' },
+    { id: 'can_reset_system', label: 'Reset Operational Data', desc: 'Clear daily logs or reset store state.' },
+  ]},
+  { group: 'HR & Disciplinary', icon: Gavel, items: [
+    { id: 'can_manage_disciplinary', label: 'Manage Disciplinary', desc: 'Access to Legal Shield and Warning history.' },
+    { id: 'can_launch_wizard', label: 'Launch Legal Wizard', desc: 'Use AI-Expert logic to draft formal warnings.' },
+    { id: 'can_delete_warnings', label: 'Delete Warning Records', desc: 'Remove disciplinary history (High Audit Risk).' },
+    { id: 'can_view_leave_tracker', label: 'View Team Leave Tracker', desc: 'Access to full store availability calendar.' },
+    { id: 'can_approve_leave', label: 'Authorize Leave Requests', desc: 'Approve or Deny staff leave applications.' },
+  ]},
+  { group: 'Analytics & Reporting', icon: BarChart3, items: [
+    { id: 'can_view_reports', label: 'Access Reports Module', desc: 'General visibility of the reporting dashboard.' },
+    { id: 'can_view_financial_reports', label: 'View Financial Analytics', desc: 'Access to Leave Liability and Labour Costing.' },
+    { id: 'can_use_custom_builder', label: 'Use Custom Report Builder', desc: 'Design bespoke data exports.' },
+    { id: 'can_view_legal_bundle', label: 'Access CCMA Legal Bundle', desc: 'High-stakes statutory evidence reports.' },
+  ]},
+  { group: 'System Administration', icon: Settings, items: [
+    { id: 'can_access_settings', label: 'Access System Settings', desc: 'Modify branches, departments and system config.' },
+    { id: 'can_manage_roles', label: 'Manage Authority Matrix', desc: 'Change permissions for levels 1 through 10.' },
+    { id: 'can_manage_users', label: 'User Account Management', desc: 'Create and disable system login accounts.' },
+  ]}
 ];
 
 export default function TabPermissions() {
-  const [roles, setRoles] = useState([]);
-  const [selectedRole, setSelectedRole] = useState(null);
-  const [permissions, setPermissions] = useState({});
+  const [levels, setLevels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    fetchRoles();
+    fetchMatrix();
   }, []);
 
-  const fetchRoles = async () => {
-    setLoading(true);
+  const fetchMatrix = async () => {
     try {
-      const data = await getPositions();
-      setRoles(data || []);
-      if (data && data.length > 0) {
-        selectRole(data[0]);
+      const data = await getAllAuthorityLevels();
+      if (!data || data.length === 0) {
+        const defaults = Array.from({length: 10}, (_, i) => ({
+          level: 10 - i,
+          permissions: {}
+        }));
+        setLevels(defaults);
+      } else {
+        setLevels(data);
       }
     } catch (err) {
       console.error(err);
@@ -37,129 +70,123 @@ export default function TabPermissions() {
     }
   };
 
-  const selectRole = (role) => {
-    setSelectedRole(role);
-    setPermissions(role.permissions || {});
-  };
+  const togglePermission = (lvlNum, key) => {
+    if (lvlNum === 10) return; // Level 10 is Admin-Locked
 
-  const togglePermission = (key) => {
-    setPermissions(prev => ({
-      ...prev,
-      [key]: !prev[key]
+    setLevels(prev => prev.map(l => {
+      if (l.level === lvlNum) {
+        const newPerms = { ...l.permissions };
+        newPerms[key] = !newPerms[key];
+        return { ...l, permissions: newPerms };
+      }
+      return l;
     }));
   };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await updateRolePermissions(selectedRole.id, permissions);
-      // Update local state
-      setRoles(roles.map(r => r.id === selectedRole.id ? { ...r, permissions } : r));
-      alert("Permissions updated for " + selectedRole.role_name);
+      await saveAuthorityMatrix(levels);
+      alert("Master Security Matrix committed successfully.");
     } catch (err) {
-      alert("Save failed: " + err.message);
+      alert("Sync failed: " + err.message);
     } finally {
       setIsSaving(false);
     }
   };
 
+  if (loading) return <div className="py-20 text-center animate-pulse italic text-slate-400">Syncing security matrix...</div>;
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xl font-bold text-slate-900 tracking-tight">Security Matrix</h3>
-          <p className="text-slate-500 text-xs font-medium">Configure granular access for each authority level.</p>
+          <p className="text-slate-500 text-xs font-medium uppercase tracking-widest">Master Authority Control (Level 10 down to 1)</p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+        >
+          <Save size={16} />
+          {isSaving ? 'Syncing...' : 'Commit Matrix'}
+        </button>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-3xl shadow-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse table-fixed min-w-[1200px]">
+            <thead>
+              <tr className="bg-slate-900 text-white">
+                <th className="sticky left-0 z-30 bg-slate-900 w-64 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-left border-r border-slate-800">
+                  Ability / Section
+                </th>
+                {levels.map(l => (
+                  <th key={l.level} className="px-1 py-4 text-center border-r border-slate-800 last:border-r-0">
+                    <div className="flex flex-col items-center gap-1">
+                       <span className={`text-[14px] font-black leading-none ${l.level === 10 ? 'text-yellow-500' : ''}`}>{l.level}</span>
+                       <span className="text-[7px] font-bold text-slate-500 uppercase tracking-tighter">LVL</span>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {ABILITIES.map(group => (
+                <React.Fragment key={group.group}>
+                  <tr className="bg-slate-50/80">
+                    <td colSpan={11} className="sticky left-0 z-20 px-6 py-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+                      <group.icon size={12} />
+                      {group.group}
+                    </td>
+                  </tr>
+                  {group.items.map(item => (
+                    <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
+                      <td className="sticky left-0 z-20 bg-white group-hover:bg-slate-50 px-6 py-3 border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                        <p className="text-[10px] font-bold text-slate-700 leading-tight">{item.label}</p>
+                        <p className="text-[7px] text-slate-400 font-medium leading-tight mt-0.5 uppercase tracking-tighter">{item.desc}</p>
+                      </td>
+                      {levels.map(l => {
+                        const isActive = l.permissions[item.id] || (l.level === 10);
+                        return (
+                          <td key={l.level} className="px-0.5 py-3 text-center border-r border-slate-50 last:border-r-0">
+                            <button
+                              disabled={l.level === 10}
+                              onClick={() => togglePermission(l.level, item.id)}
+                              className={`
+                                mx-auto w-7 h-7 rounded-lg flex items-center justify-center transition-all border-2
+                                ${isActive
+                                  ? 'bg-emerald-50 border-emerald-500 text-emerald-600 shadow-inner'
+                                  : 'bg-white border-slate-100 text-slate-200 hover:border-slate-300'
+                                }
+                                ${l.level === 10 ? 'opacity-50 cursor-not-allowed border-yellow-500 bg-yellow-50 text-yellow-600' : 'cursor-pointer active:scale-90'}
+                              `}
+                            >
+                              {l.level === 10 ? <Lock size={12} /> : (isActive ? <Check size={14} strokeWidth={4} /> : <X size={14} strokeWidth={4} />)}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-
-        {/* Role Sidebar */}
-        <div className="lg:col-span-1 space-y-2">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Select Authority</p>
-          {roles.map(role => (
-            <button
-              key={role.id}
-              onClick={() => selectRole(role)}
-              className={`w-full text-left px-4 py-3 rounded-xl transition-all border-2 flex items-center justify-between group ${
-                selectedRole?.id === role.id
-                ? 'bg-slate-900 border-slate-900 text-white shadow-md'
-                : 'bg-white border-slate-100 hover:border-yellow-600 text-slate-600'
-              }`}
-            >
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase truncate tracking-tight">{role.role_name}</p>
-                <p className={`text-[9px] font-bold ${selectedRole?.id === role.id ? 'text-yellow-500' : 'text-slate-400'}`}>LVL {role.authority_level}</p>
-              </div>
-              <ShieldCheck size={14} className={selectedRole?.id === role.id ? 'text-yellow-500' : 'text-slate-200 group-hover:text-yellow-600'} />
-            </button>
-          ))}
-        </div>
-
-        {/* Permission Grid */}
-        <div className="lg:col-span-3 space-y-6">
-          <SummaryCard
-            title={`Permissions for ${selectedRole?.role_name || '...'}`}
-            icon={ShieldCheck}
-            badge={
-              <button
-                onClick={handleSave}
-                disabled={isSaving || !selectedRole}
-                className="flex items-center gap-2 px-3 py-1 bg-yellow-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-yellow-500 shadow-sm active:scale-95 disabled:opacity-50"
-              >
-                <Save size={12} />
-                {isSaving ? 'Syncing...' : 'Save Matrix'}
-              </button>
-            }
-          >
-            {selectedRole?.authority_level === 1 ? (
-              <div className="py-12 flex flex-col items-center justify-center text-center px-8">
-                 <div className="w-16 h-16 bg-slate-900 rounded-3xl flex items-center justify-center text-yellow-500 mb-4 shadow-xl">
-                   <ShieldCheck size={32} />
-                 </div>
-                 <h4 className="text-sm font-black text-slate-900 uppercase">System Administrator (Lvl 1)</h4>
-                 <p className="text-xs text-slate-400 mt-2 max-w-xs font-medium italic">
-                    Level 1 accounts have bypass-level clearance. All security checks are automatically granted for this authority level.
-                 </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 -mx-4 -mb-4">
-                {PERMISSION_KEYS.map(perm => {
-                  const isActive = permissions[perm.id];
-                  return (
-                    <button
-                      key={perm.id}
-                      onClick={() => togglePermission(perm.id)}
-                      className="w-full flex items-start gap-4 p-5 hover:bg-slate-50 transition-all text-left group"
-                    >
-                      <div className={`mt-0.5 w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all ${
-                        isActive ? 'bg-emerald-50 border-emerald-500 text-emerald-600 shadow-inner' : 'bg-white border-slate-100 text-slate-200 group-hover:border-slate-300'
-                      }`}>
-                        {isActive ? <Check size={20} strokeWidth={3} /> : <X size={20} strokeWidth={3} />}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className={`text-xs font-black uppercase tracking-tight ${isActive ? 'text-slate-900' : 'text-slate-400 group-hover:text-slate-600'}`}>{perm.label}</h4>
-                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">{perm.desc}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </SummaryCard>
-
-          <div className="bg-rose-50 border border-rose-100 rounded-2xl p-5 flex items-start gap-4">
-             <div className="w-10 h-10 bg-rose-600 rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg">
-                <AlertCircle size={20} />
-             </div>
-             <div>
-                <h4 className="text-[10px] font-black text-rose-800 uppercase tracking-widest mb-1">Security Warning</h4>
-                <p className="text-[11px] text-rose-700 leading-relaxed font-medium">
-                  Changes to the security matrix take effect immediately across all sessions. Restricting a manager's access while they are performing actions may result in data sync interruptions.
-                </p>
-             </div>
-          </div>
-        </div>
+      <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5 flex items-start gap-4">
+         <div className="w-10 h-10 bg-yellow-600 rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg">
+            <AlertCircle size={20} />
+         </div>
+         <div>
+            <h4 className="text-[10px] font-black text-rose-800 uppercase tracking-widest mb-1">Architecture Lockdown (Master Tech Mode)</h4>
+            <p className="text-[11px] text-amber-900 leading-relaxed font-medium">
+              Level 10 is reserved for master technician setup. This level cannot be modified and has bypass clearance for all features. Restricting a lower level will immediately hide the associated interface elements for those users.
+            </p>
+         </div>
       </div>
     </div>
   );

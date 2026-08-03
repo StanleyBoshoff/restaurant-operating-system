@@ -1,12 +1,23 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { EMPLOYEE_TABS } from './EmployeeTabRegistry';
+import { canDo } from '../../utils/permissionService';
 
 export default function EmployeeTabNavigation({ baseUrl }) {
+    // Mock current user (Replace with Auth context later)
+    const currentUser = {
+        role_data: { authority_level: 10 } // Master Tech bypass
+    };
+
+    const filteredTabs = EMPLOYEE_TABS.filter(tab => {
+        if (!tab.permissionId) return true;
+        return canDo(currentUser, tab.permissionId);
+    });
+
     return (
         <div className="flex border-b border-slate-200 mb-6 overflow-x-auto no-scrollbar">
             <div className="flex min-w-max">
-                {EMPLOYEE_TABS.map((tab) => (
+                {filteredTabs.map((tab) => (
                     <NavLink
                         key={tab.id}
                         to={tab.path === '' ? baseUrl : `${baseUrl}/${tab.path}`}

@@ -1,9 +1,12 @@
 import React from 'react';
+import TabMonthlyRegister from '../timesheets/TabMonthlyRegister';
 
 export default function TabTimeAttendance({ employee }) {
+  if (!employee) return null;
+
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-400 italic">
-      Clock-in records, attendance tracking, and timesheet management coming soon.
+    <div className="space-y-6">
+      <TabMonthlyRegister lockedEmployeeId={employee.id} />
     </div>
   );
 }

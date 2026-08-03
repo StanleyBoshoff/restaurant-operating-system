@@ -1,54 +1,82 @@
 /**
  * Restaurise Hierarchy & Permission Engine
  * Enforces authority levels and data visibility rules across the REMS.
+ *
+ * Hierarchy: 10 (Master Technician / Admin) down to 1 (Lowest / Entry).
  */
 
 export const AUTHORITY_LEVELS = {
-  ADMIN: 1,      // Full control
-  BOSS: 2,       // Owner/HR (Everything except system settings)
-  SR_MANAGER: 3, // GM/Head Chef (Full departmental access)
-  MANAGER: 4,    // Floor Manager/Sous Chef (Team management)
-  SUPERVISOR: 5, // Lead/2IC (Limited team visibility)
-  STAFF: 6       // Entry level (Self-access only)
+  MASTER_TECH: 10,
+  OWNER: 9,
+  HR_MANAGER: 8,
+  GM: 7,
+  DEPT_HEAD: 6,
+  MANAGER: 5,
+  SUPERVISOR: 4,
+  SENIOR_STAFF: 3,
+  STAFF: 2,
+  ENTRY: 1
 };
 
 /**
- * Checks if a user has access to a specific module.
+ * Checks if a user has access to a specific module (Sidebar level).
  */
 export const canAccessModule = (user, moduleName) => {
   if (!user || !user.role_data) return false;
   const { authority_level, permissions } = user.role_data;
 
-  // Level 1 always has access
-  if (authority_level === AUTHORITY_LEVELS.ADMIN) return true;
+  // Level 10 always has full system access (Technician Bypass)
+  if (authority_level >= AUTHORITY_LEVELS.MASTER_TECH) return true;
 
-  // Level 2 (Boss) has access to everything except settings
-  if (authority_level === AUTHORITY_LEVELS.BOSS) {
-    return moduleName.toLowerCase() !== 'settings';
+  // For levels 1-9, access is strictly driven by the matrix.
+  // Map module names to their corresponding permission matrix keys
+  const moduleMap = {
+    'settings': 'can_access_settings',
+    'disciplinary': 'can_manage_disciplinary',
+    'reports': 'can_view_reports',
+    'leave': 'can_view_leave_tracker',
+    'timesheets': 'can_view_timesheets',
+    'checklists': 'can_manage_checklists',
+    'forms': 'can_submit_forms',
+    'training': 'can_manage_training'
+  };
+
+  const key = moduleMap[moduleName.toLowerCase()];
+  if (key && permissions) {
+    return permissions[key] || false;
   }
 
-  // Otherwise check the specific permission bit
-  switch (moduleName.toLowerCase()) {
-    case 'settings': return permissions?.can_access_settings || false;
-    case 'reports': return authority_level <= AUTHORITY_LEVELS.MANAGER;
-    case 'disciplinary': return permissions?.can_manage_disciplinary || false;
-    default: return true; // Standard modules accessible by default
-  }
+  // Dashboard and Employees are public entry points, content filtering happens inside.
+  return true;
+};
+
+/**
+ * Generic permission check for any action/feature.
+ * Strictly checks the matrix for levels 1-9.
+ */
+export const canDo = (user, permissionKey) => {
+  if (!user || !user.role_data) return false;
+  const { authority_level, permissions } = user.role_data;
+
+  if (authority_level >= AUTHORITY_LEVELS.MASTER_TECH) return true;
+
+  return permissions?.[permissionKey] || false;
 };
 
 /**
  * Field-level security logic.
+ * Strictly checks the matrix for levels 1-9.
  */
 export const canViewSensitiveField = (user, fieldName) => {
   if (!user || !user.role_data) return false;
   const { authority_level, permissions } = user.role_data;
 
-  if (authority_level <= AUTHORITY_LEVELS.BOSS) return true;
+  if (authority_level >= AUTHORITY_LEVELS.MASTER_TECH) return true;
 
   switch (fieldName) {
     case 'salary_wage': return permissions?.can_view_salary || false;
-    case 'emergency_contact': return true; // Always visible for safety
-    case 'private_notes': return authority_level <= AUTHORITY_LEVELS.SR_MANAGER;
+    case 'private_notes': return permissions?.can_view_all_staff || false;
+    case 'emergency_contact': return true; // Safety override (Always visible)
     default: return true;
   }
 };
@@ -58,21 +86,17 @@ export const canViewSensitiveField = (user, fieldName) => {
  */
 export const canManageEmployee = (manager, target) => {
   if (!manager || !target) return false;
-  const mLevel = manager.role_data?.authority_level || 6;
-  const tLevel = target.role_data?.authority_level || 6;
 
-  // Admin/Boss see everyone
-  if (mLevel <= AUTHORITY_LEVELS.BOSS) return true;
+  const mLevel = manager.role_data?.authority_level || 1;
+  const tLevel = target.role_data?.authority_level || 1;
 
-  // Cannot manage someone higher or equal in authority
-  if (mLevel >= tLevel) return false;
-
-  // Departmental Isolation: If they are management, they must be in the same department
-  if (manager.department && target.department) {
-    if (manager.department !== target.department && manager.department !== 'Admin') {
-      return false;
+  // Higher level manages lower level
+  if (mLevel > tLevel) {
+    if (manager.role_data?.permissions?.can_view_all_staff) return true;
+    if (manager.department === target.department || manager.department === 'Admin') {
+      return true;
     }
   }
 
-  return true;
+  return false;
 };

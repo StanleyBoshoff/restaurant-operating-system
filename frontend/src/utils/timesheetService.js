@@ -122,6 +122,37 @@ export const getTimesheetsInRange = async (startDate, endDate) => {
 };
 
 /**
+ * Calculates summary stats for a single employee.
+ */
+export const getEmployeeTimesheetStats = async (employeeId) => {
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+
+  const { data: shifts, error } = await supabase
+    .from('employee_timesheets')
+    .select('*')
+    .eq('employee_id', employeeId)
+    .gte('clock_in', weekAgo.toISOString());
+
+  if (error) throw error;
+
+  let totalHours = 0;
+  let totalOvertime = 0;
+
+  (shifts || []).forEach(s => {
+    const duration = parseFloat(calculateDuration(s.clock_in, s.clock_out || new Date().toISOString(), s.break_end ? 30 : 0));
+    totalHours += duration;
+    if (duration > 9) totalOvertime += (duration - 9);
+  });
+
+  return {
+    weeklyHours: totalHours.toFixed(1),
+    weeklyOvertime: totalOvertime.toFixed(1),
+    punctuality: 100 // Logic for "Late" requires Roster comparison
+  };
+};
+
+/**
  * Utility to calculate duration in hours.
  */
 export const calculateDuration = (start, end, breakMinutes = 0) => {

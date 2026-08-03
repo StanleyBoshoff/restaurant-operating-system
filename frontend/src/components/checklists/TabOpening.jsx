@@ -2,37 +2,38 @@ import React, { useState, useEffect } from 'react';
 import SummaryCard from '../common/SummaryCard';
 import { ClipboardList, CheckCircle2, Circle, AlertCircle, Save, UserCheck, Trash2 } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
-
-const DEFAULT_DUTIES = [
-  { id: 'foh-1', category: 'Front of House', task: 'Switch on all interior and exterior lighting', mandatory: true },
-  { id: 'foh-2', category: 'Front of House', task: 'Initialize POS terminals and verify paper rolls', mandatory: true },
-  { id: 'foh-3', category: 'Front of House', task: 'Count opening float and secure in cash drawer', mandatory: true },
-  { id: 'foh-4', category: 'Front of House', task: 'Wipe down tables and arrange menus', mandatory: false },
-  { id: 'foh-5', category: 'Front of House', task: 'Ensure music system is active at ambient level', mandatory: false },
-
-  { id: 'boh-1', category: 'Back of House', task: 'Ignite ovens, fryers, and grills for pre-heating', mandatory: true },
-  { id: 'boh-2', category: 'Back of House', task: 'Record opening fridge/freezer temperatures', mandatory: true },
-  { id: 'boh-3', category: 'Back of House', task: 'Review prep lists and delegate morning tasks', mandatory: true },
-  { id: 'boh-4', category: 'Back of House', task: 'Check stock levels of daily perishables', mandatory: true },
-  { id: 'boh-5', category: 'Back of House', task: 'Verify chemical dispensers and dishwashing station', mandatory: false },
-];
+import { getChecklistItems, submitChecklist } from '../../utils/checklistService';
 
 export default function TabOpening() {
   const [items, setItems] = useState([]);
   const [completedIds, setCompletedIds] = useState(new Set());
   const [signingManager, setSigningManager] = useState('');
   const [isSaved, setIsSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load from local storage for persistence across reloads (per blueprint "Store-Proof" focus)
-    const saved = localStorage.getItem('ros_opening_checklist');
+    fetchItems();
+
+    // Recovery from local storage for in-progress work
+    const saved = localStorage.getItem('ros_opening_checklist_draft');
     if (saved) {
       const { completed, manager } = JSON.parse(saved);
       setCompletedIds(new Set(completed));
       setSigningManager(manager);
     }
-    setItems(DEFAULT_DUTIES);
   }, []);
+
+  const fetchItems = async () => {
+    setLoading(true);
+    try {
+      const data = await getChecklistItems('Opening Duty');
+      setItems(data || []);
+    } catch (err) {
+      console.error("Failed to load checklist items:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleTask = (id) => {
     const newSet = new Set(completedIds);
@@ -40,17 +41,33 @@ export default function TabOpening() {
     else newSet.add(id);
     setCompletedIds(newSet);
     setIsSaved(false);
+
+    // Save draft locally
+    localStorage.setItem('ros_opening_checklist_draft', JSON.stringify({
+      completed: Array.from(newSet),
+      manager: signingManager
+    }));
   };
 
-  const handleSave = () => {
-    const data = {
-      completed: Array.from(completedIds),
-      manager: signingManager,
-      timestamp: new Date().toISOString()
-    };
-    localStorage.setItem('ros_opening_checklist', JSON.stringify(data));
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+  const handleSave = async () => {
+    if (!signingManager) return alert("Please enter manager name for sign-off.");
+
+    const submissionData = items.map(item => ({
+      id: item.id,
+      task: item.task_description,
+      completed: completedIds.has(item.id)
+    }));
+
+    try {
+      await submitChecklist('Opening Duty', submissionData, signingManager);
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+
+      // Clear draft
+      localStorage.removeItem('ros_opening_checklist_draft');
+    } catch (err) {
+      alert("Failed to submit checklist: " + err.message);
+    }
   };
 
   const clearChecklist = () => {
@@ -61,8 +78,14 @@ export default function TabOpening() {
     }
   };
 
-  const categories = [...new Set(items.map(i => i.category))];
-  const progress = Math.round((completedIds.size / items.length) * 100);
+  const categories = [...new Set(items.map(i => i.category || 'General'))];
+  const progress = items.length > 0 ? Math.round((completedIds.size / items.length) * 100) : 0;
+
+  if (loading) return (
+    <div className="py-20 text-center italic text-slate-400 animate-pulse">
+       Loading store protocols from secure vault...
+    </div>
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -159,9 +182,9 @@ export default function TabOpening() {
                   </div>
                   <div className="flex-1">
                     <p className={`text-xs font-bold ${completedIds.has(task.id) ? 'line-through decoration-slate-300' : ''}`}>
-                      {task.task}
+                      {task.task_description}
                     </p>
-                    {task.mandatory && (
+                    {task.is_mandatory && (
                       <span className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Mandatory Compliance Item</span>
                     )}
                   </div>

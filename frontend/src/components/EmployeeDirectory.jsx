@@ -32,6 +32,7 @@ export default function EmployeeDirectory() {
             setLoading(true);
             const { data, error } = await supabase.from('employees').select('*');
             if (error) throw error;
+            console.log("Successfully loaded employees:", data);
             setEmployees(data || []);
         } catch (error) {
             console.error('Database connection error:', error.message);

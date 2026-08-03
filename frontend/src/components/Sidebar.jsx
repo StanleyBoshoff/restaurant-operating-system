@@ -1,10 +1,16 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
+import { canAccessModule } from '../utils/permissionService';
 
 export default function Sidebar ({ companyName, navigationItems, sidebarOpen, setSidebarOpen }) {
     // Hardcoded for user UI visualization phase
-    const mockUser = { name: "Stanley Boshoff", role: "General Manager", branch: "Centurion Central" };
+    const mockUser = {
+        name: "Stanley Boshoff",
+        role: "General Manager",
+        branch: "Centurion Central",
+        role_data: { authority_level: 1, permissions: { can_access_settings: true } }
+    };
 
     return (
         <aside className={`bg-slate-900 text-slate-200 fixed inset-y-0 left-0 z-50 flex flex-col justify-between border-r border-slate-800 transition-all duration-300 ease-in-out
@@ -55,8 +61,10 @@ export default function Sidebar ({ companyName, navigationItems, sidebarOpen, se
 
                 {/* Menu loop generating NavLinks */}
                 <nav className="p-3 space-y-1">
-                    {navigationItems && navigationItems.map((item) => {
-                        const IconComponent = item.icon;
+                    {navigationItems && navigationItems
+                        .filter(item => canAccessModule(mockUser, item.id))
+                        .map((item) => {
+                            const IconComponent = item.icon;
                         
                         return (
                         <NavLink

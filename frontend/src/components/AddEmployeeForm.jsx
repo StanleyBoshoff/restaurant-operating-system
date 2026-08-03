@@ -7,7 +7,8 @@ export default function AddEmployeeForm({ onClose, onRefresh, dbRoles, editingEm
     const [formData, setFormData] = useState({
         first_name: '',
         last_name: '',
-        role: '',
+        role_id: '', // UUID from roles table
+        reports_to_id: '', // UUID from employees table
         branch: '',
         employee_number: '',
         department: '',
@@ -18,7 +19,7 @@ export default function AddEmployeeForm({ onClose, onRefresh, dbRoles, editingEm
         email: '',
         start_date: '',
         end_date: '',
-        manager_name: '',
+        manager_name: '', // Kept for legacy display
         probation_status: 'Not Started',
         salary_wage: '',
         emergency_contact_name: '',
@@ -26,14 +27,22 @@ export default function AddEmployeeForm({ onClose, onRefresh, dbRoles, editingEm
         sa_id_number: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [employees, setEmployees] = useState([]); // For reports_to selection
 
     // --- PRE-FILL IN EDIT MODE ---
     useEffect(() => {
+        const fetchStaff = async () => {
+            const { data } = await supabase.from('employees').select('id, first_name, last_name, role');
+            setEmployees(data || []);
+        };
+        fetchStaff();
+
         if (editingEmployee) {
             setFormData({
                 first_name: editingEmployee.first_name || '',
                 last_name: editingEmployee.last_name ||'',
-                role: editingEmployee.role || '',
+                role_id: editingEmployee.role_id || '',
+                reports_to_id: editingEmployee.reports_to_id || '',
                 branch: editingEmployee.branch || '',
                 employee_number: editingEmployee.employee_number || '',
                 department: editingEmployee.department || '',
@@ -72,7 +81,9 @@ export default function AddEmployeeForm({ onClose, onRefresh, dbRoles, editingEm
                 'employee_number',
                 'email',
                 'sa_id_number',
-                'leave_opening_balance_annual'
+                'leave_opening_balance_annual',
+                'role_id',
+                'reports_to_id'
             ];
 
             nullifyFields.forEach(field => {
@@ -149,48 +160,54 @@ export default function AddEmployeeForm({ onClose, onRefresh, dbRoles, editingEm
                         />
                     </div>
 
-                                        {/*  INSERT THIS NEW SELECT BLOCK: */}
+                    {/*  INSERT THIS NEW SELECT BLOCK: */}
                     <div>
                         <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Role / Job Title</label>
                         <select 
                           required
-                          value={formData.role}
-                          onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                          value={formData.role_id}
+                          onChange={(e) => {
+                              const selectedRole = dbRoles.find(r => r.id === e.target.value);
+                              setFormData({
+                                  ...formData,
+                                  role_id: e.target.value,
+                                  role: selectedRole?.role_name || '',
+                                  department: selectedRole?.classification || ''
+                              });
+                          }}
                           className="w-full border border-slate-200 px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:border-yellow-600 bg-slate-50 text-slate-800"
                         >
                           <option value="">-- Select Official Dynamic Position --</option>
                           
                           {/* Loop over our live database roles table array records! */}
                           {dbRoles && dbRoles.map((roleObj) => (
-                            <option key={roleObj.role_name} value={roleObj.role_name}>
-                              {roleObj.role_name} ({roleObj.classification})
+                            <option key={roleObj.id} value={roleObj.id}>
+                              {roleObj.role_name} (Lvl {roleObj.authority_level})
                             </option>
                           ))}
                         </select>
                     </div>
 
-
-                    <div>
-                        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Branch Assignment</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. Centurion Central"
-                          value={formData.branch}
-                          onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
-                          className="w-full border border-slate-200 px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:border-yellow-600 bg-slate-50"
-                        />
-                    </div>
-
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Employee Number</label>
-                            <input
-                                type="text"
-                                value={formData.employee_number}
-                                onChange={(e) => setFormData({ ...formData, employee_number: e.target.value })}
-                                className="w-full border border-slate-200 px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:border-yellow-600 bg-slate-50"
-                            />
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Reporting To</label>
+                            <select
+                                value={formData.reports_to_id}
+                                onChange={(e) => {
+                                    const selected = employees.find(emp => emp.id === e.target.value);
+                                    setFormData({
+                                        ...formData,
+                                        reports_to_id: e.target.value,
+                                        manager_name: selected ? `${selected.first_name} ${selected.last_name}` : ''
+                                    });
+                                }}
+                                className="w-full border border-slate-200 px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:border-yellow-600 bg-slate-50 text-slate-800"
+                            >
+                                <option value="">No Direct Manager</option>
+                                {employees.filter(e => e.id !== editingEmployee?.id).map(emp => (
+                                    <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div>
                             <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Department</label>

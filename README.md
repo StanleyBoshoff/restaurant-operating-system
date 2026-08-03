@@ -6,47 +6,50 @@ A professional-grade, industry-specific Employee Management System (EMS) designe
 
 # 🚀 Project Status
 
-🟢 **Active Development (Phase 3: Workforce Operations)**
+🟢 **Active Development (Phase 4: Advanced Reporting & Intelligence)**
 
-The system has transitioned from a data collection tool to a functional **Management Command Center** with real-time operational insights.
+The system has matured from a data collection tool into a powerful **Management Command Center** and **Legal Defense Platform**.
 
 Current focus:
-- 🕒 **Time & Attendance Engine**: Functional Live Clocking Terminal and Weekly Attendance Matrix.
-- 📋 **Operational Checklists**: Digital store-readiness protocols (Opening/Closing) with manager sign-off.
-- 💰 **Financial Reconciliation**: Daily Cash-Up and Petty Cash tracking logs.
-- 📈 **Strategic Analytics**: Real-time dashboard stats for labour cost, on-duty staff, and compliance risks.
+- 🛡️ **CCMA Legal Defense Bundle**: Specialized high-stakes reporting (AWOL Audits, Refusal Proof, 3-Year Sick Cycle Tracking).
+- 🏛️ **Dynamic Hierarchy Engine**: 6-level authority system (Admin to Staff) with granular permissions and departmental isolation.
+- 📈 **Full Statutory Reporting Suite**: 17+ automated reports including Leave Liability (Rand-value), TOIL Balances, and Medical Certificate Logs.
+- 🕒 **Workforce Operations**: Live Clocking Terminal, Weekly Attendance Matrix, and Digital Store-Readiness Checklists.
 - ⚖️ **Legal Shield Disciplinary Engine**: 60% Complete (Expert Registry & Probing active).
-- 📅 **Statutory Leave Management**: 80% Complete (BCEA calculations active).
+- 📅 **Statutory Leave Management**: 90% Complete (Connected Calendar, Individual Master Packs, and BCEA logic active).
 
 ---
 
 # 🛠️ Core Modules
 
-## 1. Disciplinary Management (Legal Shield)
-The "Legal Shield" is our most advanced feature, acting as an on-demand HR Director.
-- **100% Local Engine**: Works offline with zero dependency on cloud AI for drafting.
+## 1. Hierarchy & Access Control (New)
+Enterprise-grade security architecture for multi-branch scalability.
+- **6-Level Authority**: Defined roles from Admin (Lvl 1) to Staff (Lvl 6).
+- **Granular Permissions**: Matrix-based control over sensitive data like salary, disciplinary records, and system settings.
+- **Reporting Chain**: Live organizational chart linking staff to direct managers for departmental isolation.
+
+## 2. Advanced Statutory Reporting
+Audit-ready data generation for owners, HR, and legal counsel.
+- **Legal Defense Bundle**: Specialized templates to protect the business at the CCMA (AWOL Audits, Sick Cycle Progress).
+- **Financial Analytics**: Real-time Rand-value Leave Liability reporting and Labour Cost metrics.
+- **Individual Master Packs**: One-click generation of a staff member's entire statutory history and balances.
+- **Custom Builder**: Bespoke report generation with multi-parameter filtering and CSV export.
+
+## 3. Workforce Operations
+Real-time tracking of staff and store readiness.
+- **Live Clock Terminal**: Tablet-optimized interface for clock-in/out and break management.
+- **Connected Calendar**: Unified store availability matrix with continuous leave bars and lane-based vertical slotting.
+- **Digital Checklists**: Opening/Closing protocols with mandatory safety items and manager sign-off.
+
+## 4. Disciplinary Management (Legal Shield)
+The "Legal Shield" acting as an on-demand HR Director.
 - **Annexure "B" Integration**: Fully mapped to 147 official restaurant industry charges.
-- **Expert Probing**: Context-aware investigation build a solid legal case.
+- **Expert Probing**: Context-aware investigation to build solid procedural evidence.
 - **Central Registry**: Store-wide command center for monitoring all active warnings.
 
-## 2. Workforce Operations
-Real-time tracking of staff and store readiness.
-- **Live Clock Terminal**: Tablet-friendly interface for staff clock-in/out and break recording.
-- **Weekly Matrix**: Manager-level grid for reviewing hours, overtime, and punctuality.
-- **Digital Checklists**: Opening and Closing protocols with mandatory safety items (Gas, Security, Cleanup).
-
-## 3. Financial & Admin Forms
-Moving store administration from paper to the cloud.
-- **Cash-Up Log**: Daily reconciliation of POS sales, Card EFT, and Payouts with real-time discrepancy alerts.
-- **Incident Registry**: Formal record-keeping for safety, security, or guest events for insurance/CCMA audits.
-
-## 4. Training & Communication
-- **Curriculum Management**: Assign and track mandatory SOP training (BCEA, HACCP, Food Safety).
-- **Broadcast Feed**: Targeted internal store communications with read-receipt tracking.
-
 ## 5. Employee Directory & Profiles
-- **UUID Architecture**: Professional, enterprise-grade database structure for multi-branch scalability.
-- **Compliance Tracking**: Real-time alerts for expiring work permits, passports, and missing mandatory documents.
+- **UUID Architecture**: Professional relational model for high-integrity data management.
+- **Compliance Tracking**: Real-time alerts for expiring permits, passports, and missing mandatory documents.
 
 ---
 
@@ -58,37 +61,14 @@ Moving store administration from paper to the cloud.
 
 ---
 
-# 📂 Project Structure
-
-```
-frontend/src/
-  ├── components/
-  │   ├── disciplinary/   # Legal Shield command center
-  │   ├── leave/          # Statutory leave & calendar
-  │   ├── timesheets/     # Live clock & weekly matrix
-  │   ├── checklists/     # Opening/Closing protocols
-  │   ├── forms/          # Cash-Up & Incident logs
-  │   ├── training/       # Curriculum & assessments
-  │   ├── communication/  # Broadcast & receipts
-  │   └── reports/        # Analytics & business intelligence
-  ├── utils/
-  │   ├── reportingService.js    # The Intelligence Brain
-  │   ├── timesheetService.js    # Attendance logic
-  │   ├── disciplinaryEngine.js  # Legal expert logic
-  │   └── leaveEngine.js         # BCEA calculation logic
-  └── supabaseClient.js  # Database connectivity
-```
-
----
-
 # 🗄️ Database Deployment
 
-The system is powered by a blueprint-compliant PostgreSQL schema. For new client installations or environment resets, use the provided master script:
+The system is powered by a blueprint-compliant PostgreSQL schema. For new installations or environment resets, use the stable idempotent script:
 
 `supabase_schema.sql` (Located in project root)
 
 > [!IMPORTANT]
-> The database uses **UUIDs** for all identifiers. When deploying, ensure the `uuid-ossp` extension is enabled in Supabase.
+> The database uses **UUIDs** for all identifiers. Ensure the `uuid-ossp` extension is enabled in Supabase before deployment.
 
 ---
 
@@ -102,7 +82,7 @@ Restaurise replaces paper files and guesswork with a legally authoritative platf
 
 ### Uploading to GitHub
 1. **Stage Changes**: `git add .`
-2. **Commit**: `git commit -m "feat: implement Phase 3 Operations and Phase 4 Analytics with UUID architecture"`
+2. **Commit**: `git commit -m "feat: implement individual reporting, CCMA defense bundle, and dynamic hierarchy"`
 3. **Connect & Push**:
    ```bash
    git push -u origin main

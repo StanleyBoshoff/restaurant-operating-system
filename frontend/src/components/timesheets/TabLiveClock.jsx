@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import SummaryCard from '../common/SummaryCard';
 import { Timer, User, Clock as ClockIcon, Coffee, LogOut, CheckCircle, Search } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
-import { clockIn, clockOut, toggleBreak, getActiveTimesheet } from '../../utils/timesheetService';
+import { clockIn, clockOut, toggleBreak, getActiveTimesheet, getEmployeeTimesheetStats } from '../../utils/timesheetService';
 import StatusBadge from '../common/StatusBadge';
 
 export default function TabLiveClock() {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [activeShift, setActiveShift] = useState(null);
+  const [empStats, setEmpStats] = useState({ weeklyHours: '0.0', weeklyOvertime: '0.0', punctuality: 100 });
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -28,10 +29,11 @@ export default function TabLiveClock() {
     fetchEmployees();
   }, []);
 
-  // When an employee is selected, check for active shifts
+  // When an employee is selected, check for active shifts & stats
   useEffect(() => {
     if (selectedEmployee) {
       loadActiveShift(selectedEmployee.id);
+      loadEmployeeStats(selectedEmployee.id);
     }
   }, [selectedEmployee]);
 
@@ -47,12 +49,22 @@ export default function TabLiveClock() {
     }
   };
 
+  const loadEmployeeStats = async (employeeId) => {
+    try {
+      const stats = await getEmployeeTimesheetStats(employeeId);
+      setEmpStats(stats);
+    } catch (err) {
+      console.error("Failed to load stats:", err);
+    }
+  };
+
   const handleClockIn = async () => {
     if (!selectedEmployee) return;
     setLoading(true);
     try {
       const shift = await clockIn(selectedEmployee.id, selectedEmployee.branch || 'Main Branch');
       setActiveShift(shift);
+      loadEmployeeStats(selectedEmployee.id);
     } catch (err) {
       alert("Clock-in failed: " + err.message);
     } finally {
@@ -66,6 +78,7 @@ export default function TabLiveClock() {
     try {
       await clockOut(activeShift.id);
       setActiveShift(null);
+      loadEmployeeStats(selectedEmployee.id);
       alert("Shift completed successfully.");
     } catch (err) {
       alert("Clock-out failed: " + err.message);
@@ -245,15 +258,15 @@ export default function TabLiveClock() {
           <SummaryCard title="Shift Stats" icon={ClockIcon}>
             <div className="py-2">
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Weekly Total</p>
-              <h3 className="text-2xl font-black text-slate-900">42.5 hrs</h3>
-              <p className="text-[9px] text-green-600 font-bold mt-1 tracking-wider">+2.5 Overtime</p>
+              <h3 className="text-2xl font-black text-slate-900">{empStats.weeklyHours} hrs</h3>
+              <p className="text-[9px] text-green-600 font-bold mt-1 tracking-wider">+{empStats.weeklyOvertime} Overtime</p>
             </div>
           </SummaryCard>
 
           <SummaryCard title="Compliance" icon={CheckCircle}>
             <div className="py-2">
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Punctuality Score</p>
-              <h3 className="text-2xl font-black text-slate-900">98%</h3>
+              <h3 className="text-2xl font-black text-slate-900">{empStats.punctuality}%</h3>
               <p className="text-[9px] text-slate-400 font-bold mt-1 tracking-wider italic">Excludes approved leave</p>
             </div>
           </SummaryCard>

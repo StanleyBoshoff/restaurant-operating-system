@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
-import { User, Phone, MapPin, Briefcase, CreditCard, ShieldAlert } from 'lucide-react';
+import { User, Phone, MapPin, Briefcase, CreditCard, ShieldAlert, DollarSign } from 'lucide-react';
+import { canViewSensitiveField } from '../../utils/permissionService';
 
 export default function TabDetails({ employee, dbRoles = [], onProfileUpdated }) {
+    // In a real app, this comes from an Auth Context.
+    // Mocking for Phase 3/4 testing.
+    const currentUser = { role_data: { authority_level: 1 } };
+
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [formData, setFormData] = useState({
@@ -182,6 +187,16 @@ export default function TabDetails({ employee, dbRoles = [], onProfileUpdated })
                     <Field label="SA ID / Passport" name="sa_id_number" />
                     <Field label="Nationality" name="nationality" />
                     <Field label="Tax Number" name="tax_number" />
+                    {canViewSensitiveField(currentUser, 'salary_wage') && (
+                        <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg flex items-center gap-3">
+                            <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center text-white shadow-sm">
+                                <DollarSign size={16} />
+                            </div>
+                            <div className="flex-1">
+                                <Field label="Salary / Monthly Wage" name="salary_wage" />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <SectionHeader icon={Phone} title="Contact & Address" />

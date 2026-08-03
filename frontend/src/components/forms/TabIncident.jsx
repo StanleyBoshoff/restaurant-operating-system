@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import SummaryCard from '../common/SummaryCard';
 import { ShieldAlert, Clock, MapPin, Users, FileText, Camera, Send, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
+import { submitForm } from '../../utils/formService';
 
 const LOCATIONS = ["Kitchen", "Dining Area", "Bar", "Parking Lot", "Back Office", "Store Room", "Front Entrance"];
 const SEVERITIES = [
@@ -22,11 +23,31 @@ export default function TabIncident() {
     actionTaken: ''
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitted(true);
-    setTimeout(() => setIsSubmitted(false), 3000);
+    if (!formData.description || !formData.location) return alert("Please provide location and description.");
+
+    setIsSaving(true);
+    try {
+      await submitForm('Incident', formData);
+      setIsSubmitted(true);
+      setTimeout(() => setIsSubmitted(false), 3000);
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toLocaleTimeString('en-ZA', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+        location: '',
+        severity: 'Medium',
+        description: '',
+        involved: '',
+        actionTaken: ''
+      });
+    } catch (err) {
+      alert("Failed to log incident: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -160,11 +181,14 @@ export default function TabIncident() {
         <div className="col-span-full">
            <button
              type="submit"
+             disabled={isSaving}
              className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.99] shadow-lg ${
                isSubmitted ? 'bg-green-600 text-white' : 'bg-rose-600 hover:bg-rose-500 text-white'
-             }`}
+             } disabled:opacity-50`}
            >
-             {isSubmitted ? (
+             {isSaving ? (
+               <span className="font-black uppercase tracking-[0.2em] text-sm animate-pulse">Syncing with Secure Vault...</span>
+             ) : isSubmitted ? (
                <>
                  <CheckCircle size={20} />
                  <span className="font-black uppercase tracking-[0.2em] text-sm">Incident Logged Successfully</span>

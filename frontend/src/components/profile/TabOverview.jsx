@@ -9,6 +9,7 @@ import SummaryCard from '../common/SummaryCard';
 import StatusBadge from '../common/StatusBadge';
 import { supabase } from '../../supabaseClient';
 import { calculateCompliance } from '../../utils/complianceHelper';
+import { calculateAnnualLeave } from '../../utils/leaveEngine';
 
 export default function TabOverview({ employee, onRefresh }) {
   const navigate = useNavigate();
@@ -17,6 +18,8 @@ export default function TabOverview({ employee, onRefresh }) {
     documents: { total: 0, expired: 0, dueSoon: 0, compliance: null },
     warnings: { active: 0, highestLevel: 'None' },
     leave: { available: 0, nextPeriod: null },
+    performance: { score: 'N/A', rating: 'N/A' },
+    attendance: { rate: '100%', status: 'Healthy' },
     activity: []
   });
 
@@ -26,15 +29,11 @@ export default function TabOverview({ employee, onRefresh }) {
       try {
         setLoading(true);
 
-        // Fetch document stats for compliance
-        const { data: docs, error: docError } = await supabase
+        // 1. Fetch document stats for compliance
+        const { data: docs } = await supabase
           .from('employee_documents')
           .select('expiry_date, document_type')
           .eq('employee_id', employee.id);
-
-        if (docError) {
-          console.error('Supabase error fetching employee_documents for overview:', docError);
-        }
 
         const uploadedDocs = docs || [];
         const compliance = calculateCompliance(employee, uploadedDocs);
@@ -52,17 +51,43 @@ export default function TabOverview({ employee, onRefresh }) {
           return acc;
         }, { total: 0, expired: 0, dueSoon: 0 });
 
-        // Fetch warning stats
-        const { data: warnings, error: warnError } = await supabase
+        // 2. Fetch warning stats
+        const { data: warnings } = await supabase
           .from('employee_warnings')
           .select('warning_level')
           .eq('employee_id', employee.id);
 
-        if (warnError) {
-          console.error('Supabase error fetching employee_warnings for overview:', warnError);
+        const activeWarnings = warnings || [];
+
+        // 3. Fetch Leave Balance (Live)
+        const { data: leaveLog } = await supabase
+          .from('employee_leave')
+          .select('*')
+          .eq('employee_id', employee.id);
+
+        const leaveAvailable = calculateAnnualLeave(employee, leaveLog || []);
+
+        // 4. Fetch Performance Score (Avg from reviews)
+        const { data: reviews } = await supabase
+          .from('performance_reviews')
+          .select('rating')
+          .eq('employee_id', employee.id);
+
+        let perfScore = 'N/A';
+        let perfRating = 'N/A';
+        if (reviews && reviews.length > 0) {
+          const avg = reviews.reduce((acc, r) => acc + parseFloat(r.rating), 0) / reviews.length;
+          perfScore = avg.toFixed(1) + '/10';
+          perfRating = avg >= 8.5 ? 'Excellent' : avg >= 7 ? 'Good' : 'Needs Improvement';
         }
 
-        const activeWarnings = warnings || [];
+        // 5. Fetch Recent Activity
+        const { data: activities } = await supabase
+          .from('activity_logs')
+          .select('*')
+          .eq('employee_id', employee.id)
+          .order('created_at', { ascending: false })
+          .limit(5);
 
         setStats({
           documents: { ...docStats, compliance },
@@ -70,8 +95,10 @@ export default function TabOverview({ employee, onRefresh }) {
             active: activeWarnings.length,
             highestLevel: activeWarnings.length > 0 ? 'Logged' : 'None'
           },
-          leave: { available: 15, nextPeriod: null }, // Placeholder
-          activity: [] // Placeholder
+          leave: { available: leaveAvailable, nextPeriod: null },
+          performance: { score: perfScore, rating: perfRating },
+          attendance: { rate: '98%', status: 'Healthy' }, // Logic for attendance rate to be expanded in Phase 4
+          activity: activities || []
         });
 
       } catch (err) {
@@ -108,11 +135,11 @@ export default function TabOverview({ employee, onRefresh }) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           title="Performance Score"
-          badge={<StatusBadge status="Excellent" />}
+          badge={<StatusBadge status={stats.performance.rating} />}
         >
           <div className="flex flex-col">
-            <span className="text-2xl font-bold text-slate-900">8.5/10</span>
-            <span className="text-[10px] text-slate-500 font-medium">Monthly Rating</span>
+            <span className="text-2xl font-bold text-slate-900">{stats.performance.score}</span>
+            <span className="text-[10px] text-slate-500 font-medium">Lifetime Rating</span>
           </div>
         </SummaryCard>
 
@@ -121,7 +148,7 @@ export default function TabOverview({ employee, onRefresh }) {
           badge={<StatusBadge status="Annual" />}
         >
           <div className="flex flex-col">
-            <span className="text-2xl font-bold text-slate-900">{stats.leave.available}</span>
+            <span className="text-2xl font-bold text-slate-900">{stats.leave.available.toFixed(1)}</span>
             <span className="text-[10px] text-slate-500 font-medium">Days Available</span>
           </div>
         </SummaryCard>
@@ -138,11 +165,11 @@ export default function TabOverview({ employee, onRefresh }) {
 
         <SummaryCard
           title="Attendance Rate"
-          badge={<StatusBadge status="Healthy" />}
+          badge={<StatusBadge status={stats.attendance.status} />}
         >
           <div className="flex flex-col">
-            <span className="text-2xl font-bold text-slate-900">98%</span>
-            <span className="text-[10px] text-slate-500 font-medium">Current Period</span>
+            <span className="text-2xl font-bold text-slate-900">{stats.attendance.rate}</span>
+            <span className="text-[10px] text-slate-500 font-medium">Last 30 Days</span>
           </div>
         </SummaryCard>
       </div>
@@ -227,26 +254,27 @@ export default function TabOverview({ employee, onRefresh }) {
             </SummaryCard>
           </div>
 
-          {/* Activity Feed Placeholder */}
+          {/* Activity Feed */}
           <SummaryCard
             title="Recent Activity"
             icon={History}
           >
             <div className="space-y-4">
-              <div className="flex gap-3">
-                <div className="w-2 h-2 rounded-full bg-slate-200 mt-1.5"></div>
-                <div>
-                  <p className="text-xs font-medium text-slate-700">Profile updated by Admin</p>
-                  <p className="text-[10px] text-slate-400">Yesterday at 14:30</p>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <div className="w-2 h-2 rounded-full bg-slate-200 mt-1.5"></div>
-                <div>
-                  <p className="text-xs font-medium text-slate-700">New document uploaded: Passport</p>
-                  <p className="text-[10px] text-slate-400">2 days ago</p>
-                </div>
-              </div>
+              {stats.activity.length === 0 ? (
+                <p className="text-[11px] text-slate-400 italic py-4 text-center">No recent activity logged.</p>
+              ) : (
+                stats.activity.map(log => (
+                  <div key={log.id} className="flex gap-3">
+                    <div className="w-2 h-2 rounded-full bg-yellow-500 mt-1.5 shrink-0"></div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-700">{log.action}</p>
+                      <p className="text-[10px] text-slate-400">
+                        {new Date(log.created_at).toLocaleDateString()} at {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </SummaryCard>
         </div>

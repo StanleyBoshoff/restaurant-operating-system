@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import SummaryCard from '../common/SummaryCard';
 import { FileText, Calculator, DollarSign, CreditCard, ShoppingBag, Plus, Save, History, AlertCircle } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
+import { submitForm } from '../../utils/formService';
 
 export default function TabCashUp() {
   const [sales, setSales] = useState({ cash: 0, card: 0, delivery: 0 });
   const [cashCount, setCashCount] = useState({ float: 1500, counted: 0 });
   const [payouts, setPayouts] = useState([]);
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const totalSales = parseFloat(sales.cash || 0) + parseFloat(sales.card || 0) + parseFloat(sales.delivery || 0);
   const totalPayouts = payouts.reduce((acc, p) => acc + parseFloat(p.amount || 0), 0);
@@ -18,9 +20,35 @@ export default function TabCashUp() {
     setPayouts([...payouts, { id: Date.now(), reason: '', amount: 0 }]);
   };
 
-  const handleSave = () => {
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const submissionData = {
+        sales,
+        cashCount,
+        payouts,
+        totals: {
+          totalSales,
+          totalPayouts,
+          expectedCash,
+          discrepancy
+        }
+      };
+
+      await submitForm('CashUp', submissionData);
+
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+
+      // Optionally reset form
+      setSales({ cash: 0, card: 0, delivery: 0 });
+      setCashCount({ float: 1500, counted: 0 });
+      setPayouts([]);
+    } catch (err) {
+      alert("Failed to commit cash-up: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -180,12 +208,13 @@ export default function TabCashUp() {
 
             <button
               onClick={handleSave}
+              disabled={isSaving}
               className={`px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg flex items-center gap-2 ${
                 isSaved ? 'bg-green-600 text-white' : 'bg-yellow-600 text-white hover:bg-yellow-500'
-              }`}
+              } disabled:opacity-50`}
             >
               <Save size={16} />
-              {isSaved ? 'Reconciliation Saved' : 'Commit Cash-Up'}
+              {isSaving ? 'Processing...' : isSaved ? 'Reconciliation Saved' : 'Commit Cash-Up'}
             </button>
 
             <button className="p-3 bg-slate-800 text-slate-400 rounded-xl hover:text-white transition-all">

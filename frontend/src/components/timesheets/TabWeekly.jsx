@@ -58,6 +58,14 @@ export default function TabWeekly() {
     `${ts.employees?.first_name} ${ts.employees?.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const totalPayrollHours = filteredData.reduce((acc, ts) => acc + parseFloat(calculateDuration(ts.clock_in, ts.clock_out, ts.break_end ? 30 : 0)), 0);
+  const totalOvertime = filteredData.reduce((acc, ts) => {
+    const duration = parseFloat(calculateDuration(ts.clock_in, ts.clock_out, ts.break_end ? 30 : 0));
+    return acc + (duration > 9 ? duration - 9 : 0);
+  }, 0);
+  const activeShiftsCount = filteredData.filter(ts => ts.status === 'Active' || ts.status === 'On Break').length;
+  const lateArrivalsCount = 0; // Logic for "Late" needs threshold vs Roster
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
 
@@ -201,7 +209,7 @@ export default function TabWeekly() {
         <div className="bg-slate-900 rounded-2xl p-5 text-white flex flex-col justify-between h-32 shadow-lg">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Total Payroll Hours</p>
           <div className="flex items-end justify-between">
-            <h2 className="text-3xl font-black">482.5</h2>
+            <h2 className="text-3xl font-black">{totalPayrollHours.toFixed(1)}</h2>
             <div className="w-8 h-8 bg-yellow-600 rounded-lg flex items-center justify-center">
               <FileText size={16} />
             </div>
@@ -210,17 +218,17 @@ export default function TabWeekly() {
 
         <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between h-32 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Overtime Units</p>
-          <h2 className="text-3xl font-black text-rose-600">12.0</h2>
+          <h2 className="text-3xl font-black text-rose-600">{totalOvertime.toFixed(1)}</h2>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between h-32 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Active Shifts</p>
-          <h2 className="text-3xl font-black text-green-600">04</h2>
+          <h2 className="text-3xl font-black text-green-600">{activeShiftsCount.toString().padStart(2, '0')}</h2>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between h-32 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Late Arrivals</p>
-          <h2 className="text-3xl font-black text-amber-600">03</h2>
+          <h2 className="text-3xl font-black text-amber-600">{lateArrivalsCount.toString().padStart(2, '0')}</h2>
         </div>
       </div>
     </div>

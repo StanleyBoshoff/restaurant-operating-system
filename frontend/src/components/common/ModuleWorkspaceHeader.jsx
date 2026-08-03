@@ -23,8 +23,8 @@ export default function ModuleWorkspaceHeader({
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-6">
-      <div className={`h-16 bg-gradient-to-r ${bgGradient} ${bgBorder} relative`}></div>
+    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-6">
+      <div className={`h-16 bg-gradient-to-r ${bgGradient} ${bgBorder} relative rounded-t-2xl`}></div>
       <div className="px-6 pb-6 relative">
         <div className="flex flex-col md:flex-row md:items-end gap-4 -mt-8">
           <div className="w-16 h-16 rounded-2xl bg-white p-1 shadow-md">

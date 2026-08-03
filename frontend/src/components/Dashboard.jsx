@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { getSaHolidaysForYear } from '../utils/saHolidayEngine';
 import { getOperationalSnapshot } from '../utils/reportingService';
@@ -6,9 +6,14 @@ import EmployeeFollowUpView from './EmployeeFollowUpView';
 import SummaryCard from './common/SummaryCard';
 import StatusBadge from './common/StatusBadge';
 import ModuleWorkspaceHeader from './common/ModuleWorkspaceHeader';
-import { LayoutDashboard, Calendar as CalendarIcon, ClipboardList, ChevronLeft, ChevronRight, Inbox, Users, Clock, ShieldAlert, CheckSquare } from 'lucide-react';
+import {
+    LayoutDashboard, Calendar as CalendarIcon, ClipboardList, ChevronLeft, ChevronRight,
+    Inbox, Users, Clock, ShieldAlert, CheckSquare, Zap, UserPlus, Megaphone, FileText, ChevronDown
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard({ onNavigateToEmployee }) {
+  const navigate = useNavigate();
   const [allEvents, setAllEvents] = useState([]);
   const [sidebarAgenda, setSidebarAgenda] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -16,6 +21,20 @@ export default function Dashboard({ onNavigateToEmployee }) {
   const [alertsLoading, setAlertsLoading] = useState(false);
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
   const [snapshot, setSnapshot] = useState({ totalEmployees: 0, onDutyNow: 0, pendingLeave: 0, expiringDocs: 0 });
+
+  const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+      function handleClickOutside(event) {
+          if (menuRef.current && !menuRef.current.contains(event.target)) {
+              setIsQuickActionOpen(false);
+          }
+      }
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const fetchAndAssembleCalendar = async () => {
     try {
@@ -189,6 +208,67 @@ export default function Dashboard({ onNavigateToEmployee }) {
         title="Management Command Center"
         description="Real-time automated operations and workforce deployment tracking."
         icon={LayoutDashboard}
+        actions={
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setIsQuickActionOpen(!isQuickActionOpen)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md active:scale-95"
+            >
+              <Zap size={16} fill="currentColor" />
+              Quick Action
+              <ChevronDown size={14} className={`transition-transform duration-200 ${isQuickActionOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isQuickActionOpen && (
+              <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="p-3 bg-slate-50 border-b border-slate-100">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Store Operations</span>
+                </div>
+                <div className="p-1">
+                  <button onClick={() => navigate('/employees')} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-left group">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-3xs group-hover:scale-110 transition-transform">
+                      <UserPlus size={16} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-slate-700">Add New Employee</p>
+                      <p className="text-[9px] text-slate-400 font-medium">Create personnel profile</p>
+                    </div>
+                  </button>
+
+                  <button onClick={() => navigate('/communication/announcements')} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-left group">
+                    <div className="w-8 h-8 rounded-lg bg-yellow-50 border border-yellow-100 flex items-center justify-center text-yellow-600 shadow-3xs group-hover:scale-110 transition-transform">
+                      <Megaphone size={16} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-slate-700">Create Broadcast</p>
+                      <p className="text-[9px] text-slate-400 font-medium">Send message to team</p>
+                    </div>
+                  </button>
+
+                  <button onClick={() => navigate('/forms/incident')} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-left group">
+                    <div className="w-8 h-8 rounded-lg bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shadow-3xs group-hover:scale-110 transition-transform">
+                      <ShieldAlert size={16} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-slate-700">Log Incident</p>
+                      <p className="text-[9px] text-slate-400 font-medium">Record safety event</p>
+                    </div>
+                  </button>
+
+                  <button onClick={() => navigate('/forms/cash-up')} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-left group">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-3xs group-hover:scale-110 transition-transform">
+                      <FileText size={16} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-slate-700">Daily Cash-Up</p>
+                      <p className="text-[9px] text-slate-400 font-medium">Financial reconciliation</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        }
       />
 
       {/* 📊 Strategic Stats Bar */}

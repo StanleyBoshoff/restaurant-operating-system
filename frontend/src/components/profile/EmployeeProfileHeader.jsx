@@ -1,15 +1,36 @@
-import React from 'react';
-import { User, MapPin, Briefcase, ChevronLeft } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { User, MapPin, Briefcase, ChevronLeft, Zap, Edit, FileUp, Calendar, AlertCircle, Clock, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function EmployeeProfileHeader({ employee }) {
     const navigate = useNavigate();
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef(null);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setIsMenuOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     if (!employee) return null;
 
+    const quickActions = [
+        { label: 'Edit Profile', icon: Edit, path: 'details', color: 'text-blue-600' },
+        { label: 'Upload Document', icon: FileUp, path: 'documents', color: 'text-emerald-600' },
+        { label: 'Issue Warning', icon: AlertCircle, path: 'warnings', color: 'text-rose-600' },
+        { label: 'Log Leave', icon: Calendar, path: 'leave', color: 'text-amber-600' },
+        { label: 'Timesheets', icon: Clock, path: 'time-attendance', color: 'text-indigo-600' },
+    ];
+
     return (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-6">
-            <div className="h-24 bg-slate-900 border-b border-slate-800 relative">
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-6">
+            <div className="h-24 bg-slate-900 border-b border-slate-800 relative rounded-t-2xl">
                 <button
                     onClick={() => navigate('/employees')}
                     className="absolute top-4 left-4 bg-white/10 hover:bg-white/20 text-white p-2 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium backdrop-blur-sm"
@@ -59,10 +80,40 @@ export default function EmployeeProfileHeader({ employee }) {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <button className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 text-xs font-bold rounded-lg transition-colors shadow-sm">
-                            Quick Action
+                    <div className="flex items-center gap-2 relative" ref={menuRef}>
+                        <button
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md active:scale-95"
+                        >
+                            <Zap size={14} fill="currentColor" />
+                            <span>Quick Action</span>
+                            <ChevronDown size={14} className={`transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} />
                         </button>
+
+                        {isMenuOpen && (
+                            <div className="absolute right-0 bottom-full mb-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                                <div className="p-2 bg-slate-50 border-b border-slate-100">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Personnel Actions</span>
+                                </div>
+                                <div className="p-1">
+                                    {quickActions.map((action) => (
+                                        <button
+                                            key={action.label}
+                                            onClick={() => {
+                                                navigate(action.path);
+                                                setIsMenuOpen(false);
+                                            }}
+                                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-colors text-left group"
+                                        >
+                                            <div className={`w-8 h-8 rounded-lg bg-white border border-slate-100 flex items-center justify-center ${action.color} shadow-3xs group-hover:scale-110 transition-transform`}>
+                                                <action.icon size={14} />
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-700">{action.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

@@ -63,8 +63,13 @@ export const submitEngineFeedback = async (data) => {
  * Checks if a leave type requires mandatory document proof.
  */
 export const requiresProof = (leaveType, days) => {
+  // BCEA: Sick Leave requires medical cert if > 2 days (or other specific cases)
+  // For this system, we'll flag it for all Sick Leave to be safe, as per user request.
   if (leaveType === 'Sick Leave') return true;
+
+  // Family Responsibility typically requires proof (Death Cert / Birth Cert)
   if (leaveType === 'Family Responsibility') return true;
-  if (days > 2) return true; // BCEA rule: more than 2 consecutive days
+
+  // Annual Leave and Unpaid Leave do not require proof documents
   return false;
 };

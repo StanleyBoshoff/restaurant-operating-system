@@ -10,12 +10,19 @@ import {
 import { requiresProof } from '../../utils/notificationService';
 import SummaryCard from '../common/SummaryCard';
 import StatusBadge from '../common/StatusBadge';
-import { Calendar, FileUp, Info, AlertCircle, TrendingUp } from 'lucide-react';
+import { Calendar, FileUp, Info, AlertCircle, TrendingUp, Download } from 'lucide-react';
+import LeaveReportViewer from '../leave/LeaveReportViewer';
+import { getCustomLeaveReport } from '../../utils/reportingService';
 
 export default function TabLeave({ employee }) {
   const [leaveLog, setLeaveLog] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 📊 Individual Reporting State
+  const [activeReport, setActiveReport] = useState(null);
+  const [reportData, setReportData] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // 🧳 Leave Booking States
   const [leaveType, setLeaveType] = useState('Annual Leave');
@@ -139,9 +146,31 @@ export default function TabLeave({ employee }) {
   const familyBalance = calculateFamilyLeave(employee, leaveLog);
   const projectedBalance = startDate ? projectAnnualBalance(employee, leaveLog, new Date(startDate)) : null;
 
+  const handleDownloadRecord = async () => {
+    setIsGenerating(true);
+    try {
+      const data = await getCustomLeaveReport({ employeeId: employee.id });
+      setReportData(data);
+      setActiveReport({ title: `${employee.first_name} ${employee.last_name} - Master Leave Record` });
+    } catch (err) {
+      alert("Failed to generate record: " + err.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="space-y-6 text-xs">
-      
+
+      {activeReport && (
+        <LeaveReportViewer
+          title={activeReport.title}
+          type="custom"
+          data={reportData}
+          onClose={() => setActiveReport(null)}
+        />
+      )}
+
       {/* 📊 Balance Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <SummaryCard title="Annual Leave" badge={<StatusBadge status="Available" />}>
@@ -252,7 +281,14 @@ export default function TabLeave({ employee }) {
               <Info className="text-slate-400" size={18} />
               <h4 className="font-bold text-slate-900 text-sm">Leave History</h4>
             </div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase">{leaveLog.length} Records</span>
+            <button
+              onClick={handleDownloadRecord}
+              disabled={isGenerating}
+              className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-100 transition-all active:scale-95 disabled:opacity-50"
+            >
+              <Download size={12} />
+              {isGenerating ? 'Syncing...' : 'Download Record'}
+            </button>
           </div>
           
           <div className="space-y-2 max-h-[300px] overflow-y-auto no-scrollbar">

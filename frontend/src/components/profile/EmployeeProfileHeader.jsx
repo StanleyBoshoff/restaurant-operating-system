@@ -31,7 +31,7 @@ export default function EmployeeProfileHeader({ employee }) {
         { id: 'can_submit_forms', label: 'Upload Document', icon: FileUp, path: 'documents', color: 'text-emerald-600' },
         { id: 'can_launch_wizard', label: 'Issue Warning', icon: AlertCircle, path: 'warnings', color: 'text-rose-600' },
         { id: 'can_approve_leave', label: 'Log Leave', icon: Calendar, path: 'leave', color: 'text-amber-600' },
-        { id: 'can_view_timesheets', label: 'Timesheets', icon: Clock, path: 'time-attendance', color: 'text-indigo-600' },
+        { id: 'can_view_timesheets', label: 'Attendance', icon: Clock, path: 'time-attendance', color: 'text-indigo-600' },
     ].filter(action => canDo(currentUser, action.id));
 
     return (

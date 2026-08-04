@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SummaryCard from '../common/SummaryCard';
-import { Wallet, Save, Info, AlertTriangle, Coffee, Calendar, Globe } from 'lucide-react';
+import { Wallet, Save, Info, AlertTriangle, Coffee, Calendar, Globe, Clock, Timer } from 'lucide-react';
 import { getPayrollSettings, updatePayrollSettings } from '../../utils/timesheetService';
 
 export default function TabPayroll() {
@@ -11,7 +11,11 @@ export default function TabPayroll() {
     sunday_multiplier: 1.5,
     holiday_multiplier: 2.0,
     auto_clock_out_hrs: 12,
-    shift_end_cutoff_time: '23:59:59'
+    shift_end_cutoff_time: '23:59:59',
+    monthly_overtime_threshold_hrs: 195.0,
+    enable_monthly_overtime: true,
+    enable_sunday_premium: true,
+    enable_holiday_premium: true
   });
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -148,6 +152,64 @@ export default function TabPayroll() {
                     The system automatically detects South African Public Holidays using the built-in statutory engine and applies the multiplier to the daily hour total.
                  </p>
               </div>
+           </div>
+        </SummaryCard>
+
+        {/* Overtime & Premium Logic */}
+        <SummaryCard title="Overtime & Premium Logic" icon={Timer}>
+           <div className="space-y-6 py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                   <p className="text-xs font-bold text-slate-700">Monthly Overtime Calculation</p>
+                   <p className="text-[10px] text-slate-400">Trigger overtime after total monthly standard hours.</p>
+                </div>
+                <button
+                  onClick={() => setSettings({...settings, enable_monthly_overtime: !settings.enable_monthly_overtime})}
+                  className={`w-12 h-6 rounded-full transition-all relative ${settings.enable_monthly_overtime ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings.enable_monthly_overtime ? 'right-1' : 'left-1'}`}></div>
+                </button>
+             </div>
+
+             <div className={`space-y-4 transition-all ${settings.enable_monthly_overtime ? 'opacity-100' : 'opacity-30 pointer-events-none'}`}>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Monthly Threshold (Hours)</label>
+                <div className="flex items-center gap-3">
+                   <input
+                     type="number" step="0.5"
+                     value={settings.monthly_overtime_threshold_hrs}
+                     onChange={e => setSettings({...settings, monthly_overtime_threshold_hrs: parseFloat(e.target.value)})}
+                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold"
+                   />
+                   <span className="text-[10px] font-bold text-slate-400">HRS</span>
+                </div>
+             </div>
+
+             <div className="border-t border-slate-100 pt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-slate-700">Enable Sunday 1.5x</p>
+                      <p className="text-[10px] text-slate-400">Apply standard OT rate to all Sunday work.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settings.enable_sunday_premium}
+                      onChange={e => setSettings({...settings, enable_sunday_premium: e.target.checked})}
+                      className="w-4 h-4 text-yellow-600 rounded border-slate-300 focus:ring-yellow-500"
+                    />
+                </div>
+                <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-slate-700">Enable Holiday 2.0x</p>
+                      <p className="text-[10px] text-slate-400">Apply premium OT rate to all Public Holidays.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settings.enable_holiday_premium}
+                      onChange={e => setSettings({...settings, enable_holiday_premium: e.target.checked})}
+                      className="w-4 h-4 text-yellow-600 rounded border-slate-300 focus:ring-yellow-500"
+                    />
+                </div>
+             </div>
            </div>
         </SummaryCard>
 

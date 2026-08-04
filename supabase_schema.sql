@@ -100,9 +100,38 @@ CREATE TABLE IF NOT EXISTS employee_timesheets (
     is_committed BOOLEAN DEFAULT FALSE,
     record_source TEXT DEFAULT 'Manual', -- 'Terminal', 'Manual'
     auto_clocked_out BOOLEAN DEFAULT FALSE,
+    is_approved BOOLEAN DEFAULT FALSE,
+    approved_by UUID REFERENCES employees(id) ON DELETE SET NULL,
+    approved_at TIMESTAMP WITH TIME ZONE,
     status TEXT DEFAULT 'Active',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     CONSTRAINT unique_emp_day_shift UNIQUE (employee_id, shift_date)
+);
+
+-- Employee Schedules (Planned Shifts)
+CREATE TABLE IF NOT EXISTS employee_schedules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
+    shift_date DATE NOT NULL,
+    scheduled_in TIMESTAMP WITH TIME ZONE NOT NULL,
+    scheduled_out TIMESTAMP WITH TIME ZONE NOT NULL,
+    department TEXT,
+    branch TEXT,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT unique_emp_day_schedule UNIQUE (employee_id, shift_date)
+);
+
+-- Department Budgets (Labor Cost Control)
+CREATE TABLE IF NOT EXISTS department_budgets (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    department TEXT NOT NULL,
+    branch TEXT,
+    month_year DATE NOT NULL, -- First day of the month
+    budgeted_hours DECIMAL(10,2) DEFAULT 0,
+    budgeted_cost DECIMAL(10,2) DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT unique_dept_branch_month UNIQUE (department, branch, month_year)
 );
 
 -- Indices & Triggers for Integrity
@@ -314,6 +343,14 @@ BEGIN
         ALTER TABLE roles ADD COLUMN permissions JSONB DEFAULT '{"can_access_settings": false, "can_view_salary": false, "can_manage_disciplinary": false, "can_approve_leave": false, "can_view_all_staff": false}';
     END IF;
 
+    -- ROLES: Add is_reporting_position if missing
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='roles' AND column_name='is_reporting_position') THEN
+        ALTER TABLE roles ADD COLUMN is_reporting_position BOOLEAN DEFAULT FALSE;
+    END IF;
+
+    -- Seed/Update managerial roles
+    UPDATE roles SET is_reporting_position = TRUE WHERE role_name ILIKE '%Manager%' OR role_name ILIKE '%Chef%' OR role_name ILIKE '%HR%' OR role_name ILIKE '%Head%';
+
     -- EMPLOYEES: Add role_id if missing
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='role_id') THEN
         ALTER TABLE employees ADD COLUMN role_id UUID REFERENCES roles(id);
@@ -328,4 +365,116 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='preferred_name') THEN
         ALTER TABLE employees ADD COLUMN preferred_name TEXT;
     END IF;
+
+    -- EMPLOYEES: Add bank_details_updated_at if missing
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='bank_details_updated_at') THEN
+        ALTER TABLE employees ADD COLUMN bank_details_updated_at TIMESTAMP WITH TIME ZONE;
+    END IF;
+
+    -- NEW FIELDS FROM MANUAL FORMS
+    -- Personal
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='date_of_birth') THEN ALTER TABLE employees ADD COLUMN date_of_birth DATE; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='passport_number') THEN ALTER TABLE employees ADD COLUMN passport_number TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='passport_expiry_date') THEN ALTER TABLE employees ADD COLUMN passport_expiry_date DATE; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='marital_status') THEN ALTER TABLE employees ADD COLUMN marital_status TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='spouse_name') THEN ALTER TABLE employees ADD COLUMN spouse_name TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='spouse_nationality') THEN ALTER TABLE employees ADD COLUMN spouse_nationality TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='spouse_passport_number') THEN ALTER TABLE employees ADD COLUMN spouse_passport_number TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='dependants') THEN ALTER TABLE employees ADD COLUMN dependants JSONB DEFAULT '[]'; END IF;
+
+    -- Address
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='address_street_no') THEN ALTER TABLE employees ADD COLUMN address_street_no TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='address_street_name') THEN ALTER TABLE employees ADD COLUMN address_street_name TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='address_area') THEN ALTER TABLE employees ADD COLUMN address_area TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='address_code') THEN ALTER TABLE employees ADD COLUMN address_code TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='address_line_1') THEN ALTER TABLE employees ADD COLUMN address_line_1 TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='address_line_2') THEN ALTER TABLE employees ADD COLUMN address_line_2 TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='city') THEN ALTER TABLE employees ADD COLUMN city TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='postal_code') THEN ALTER TABLE employees ADD COLUMN postal_code TEXT; END IF;
+
+    -- Emergency
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='emergency_contact_relationship') THEN ALTER TABLE employees ADD COLUMN emergency_contact_relationship TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='emergency_contact_address') THEN ALTER TABLE employees ADD COLUMN emergency_contact_address TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='emergency_contact_phone_work') THEN ALTER TABLE employees ADD COLUMN emergency_contact_phone_work TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='emergency_contact_phone_home') THEN ALTER TABLE employees ADD COLUMN emergency_contact_phone_home TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='emergency_contact_2_name') THEN ALTER TABLE employees ADD COLUMN emergency_contact_2_name TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='emergency_contact_2_relationship') THEN ALTER TABLE employees ADD COLUMN emergency_contact_2_relationship TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='emergency_contact_2_address') THEN ALTER TABLE employees ADD COLUMN emergency_contact_2_address TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='emergency_contact_2_phone_work') THEN ALTER TABLE employees ADD COLUMN emergency_contact_2_phone_work TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='emergency_contact_2_phone_home') THEN ALTER TABLE employees ADD COLUMN emergency_contact_2_phone_home TEXT; END IF;
+
+    -- Medical
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='medical_aid_number') THEN ALTER TABLE employees ADD COLUMN medical_aid_number TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='medical_aid_policy_number') THEN ALTER TABLE employees ADD COLUMN medical_aid_policy_number TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='blood_group') THEN ALTER TABLE employees ADD COLUMN blood_group TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='doctor_name') THEN ALTER TABLE employees ADD COLUMN doctor_name TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='doctor_phone') THEN ALTER TABLE employees ADD COLUMN doctor_phone TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='medical_conditions') THEN ALTER TABLE employees ADD COLUMN medical_conditions TEXT; END IF;
+
+    -- BANKING & TAX
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='bank_account_holder') THEN ALTER TABLE employees ADD COLUMN bank_account_holder TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='bank_name') THEN ALTER TABLE employees ADD COLUMN bank_name TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='bank_account_number') THEN ALTER TABLE employees ADD COLUMN bank_account_number TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='bank_branch_code') THEN ALTER TABLE employees ADD COLUMN bank_branch_code TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='bank_account_type') THEN ALTER TABLE employees ADD COLUMN bank_account_type TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employees' AND column_name='tax_number') THEN ALTER TABLE employees ADD COLUMN tax_number TEXT; END IF;
+
+    -- TIMESHEETS: Approval Fields
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employee_timesheets' AND column_name='is_approved') THEN ALTER TABLE employee_timesheets ADD COLUMN is_approved BOOLEAN DEFAULT FALSE; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employee_timesheets' AND column_name='approved_by') THEN ALTER TABLE employee_timesheets ADD COLUMN approved_by UUID REFERENCES employees(id); END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employee_timesheets' AND column_name='approved_at') THEN ALTER TABLE employee_timesheets ADD COLUMN approved_at TIMESTAMP WITH TIME ZONE; END IF;
+
+    -- PAYROLL SETTINGS: New Overtime Logic
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='company_payroll_settings' AND column_name='monthly_overtime_threshold_hrs') THEN ALTER TABLE company_payroll_settings ADD COLUMN monthly_overtime_threshold_hrs DECIMAL(10,2) DEFAULT 195.0; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='company_payroll_settings' AND column_name='enable_monthly_overtime') THEN ALTER TABLE company_payroll_settings ADD COLUMN enable_monthly_overtime BOOLEAN DEFAULT TRUE; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='company_payroll_settings' AND column_name='enable_sunday_premium') THEN ALTER TABLE company_payroll_settings ADD COLUMN enable_sunday_premium BOOLEAN DEFAULT TRUE; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='company_payroll_settings' AND column_name='enable_holiday_premium') THEN ALTER TABLE company_payroll_settings ADD COLUMN enable_holiday_premium BOOLEAN DEFAULT TRUE; END IF;
 END $$;
+
+-- Employee Payroll Adjustments (Tips, Tronc, Allowances, Deductions)
+CREATE TABLE IF NOT EXISTS employee_payroll_adjustments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
+    adjustment_type TEXT NOT NULL, -- 'CC Tip', 'Tronc', 'Travel', 'Uniform', 'Meal', 'Deduction', 'Garnishment'
+    amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+    adjustment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ==========================================
+-- 8. SECURITY & VISIBILITY (DEVELOPMENT)
+-- ==========================================
+
+-- Seed All 10 Authority Levels with default empty permissions
+INSERT INTO authority_levels (level, permissions)
+VALUES
+    (10, '{}'), (9, '{}'), (8, '{}'), (7, '{}'), (6, '{}'),
+    (5, '{}'), (4, '{}'), (3, '{}'), (2, '{}'), (1, '{}')
+ON CONFLICT (level) DO NOTHING;
+
+-- Disable RLS for all core tables to ensure frontend visibility during development.
+ALTER TABLE IF EXISTS employees DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS roles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS employee_timesheets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS employee_leave DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS performance_reviews DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS employee_warnings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS activity_logs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS tasks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS employee_documents DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS checklists DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS checklist_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS checklist_submissions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS announcements DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS training_courses DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS training_enrollments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS authority_levels DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS company_payroll_settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS calendar_events DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS forms_submissions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS employee_schedules DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS department_budgets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS employee_payroll_adjustments DISABLE ROW LEVEL SECURITY;
+
+

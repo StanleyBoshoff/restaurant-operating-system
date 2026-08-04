@@ -54,7 +54,7 @@ export default function TabPositions() {
   };
 
   const startAdd = () => {
-    setEditingPos({ role_name: '', classification: 'FOH', authority_level: 6 });
+    setEditingPos({ role_name: '', classification: 'FOH', authority_level: 6, is_reporting_position: false });
     setIsAdding(true);
   };
 
@@ -113,6 +113,20 @@ export default function TabPositions() {
                 ))}
               </select>
             </div>
+            <div className="md:col-span-3">
+              <label className="flex items-center gap-3 cursor-pointer p-3 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={editingPos.is_reporting_position}
+                  onChange={e => setEditingPos({...editingPos, is_reporting_position: e.target.checked})}
+                  className="w-4 h-4 rounded border-slate-300 text-yellow-600 focus:ring-yellow-500"
+                />
+                <div>
+                  <span className="text-xs font-bold text-slate-900 block uppercase tracking-widest">Reporting Position</span>
+                  <span className="text-[10px] text-slate-500">Enable this if employees can report to this job title (e.g. Managers, Chefs).</span>
+                </div>
+              </label>
+            </div>
             <div className="md:col-span-3 flex justify-end gap-2 pt-2 border-t border-slate-100">
                <button type="button" onClick={() => setIsAdding(false)} className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-widest">Cancel</button>
                <button type="submit" className="flex items-center gap-2 px-6 py-2 bg-yellow-600 text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-yellow-500 shadow-md">
@@ -154,7 +168,15 @@ export default function TabPositions() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[9px] font-black text-slate-500 uppercase">{pos.classification}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[9px] font-black text-slate-500 uppercase">{pos.classification}</span>
+                        {pos.is_reporting_position && (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-100 text-[9px] font-black text-emerald-600 uppercase flex items-center gap-1">
+                            <UserCog size={10} />
+                            Manager
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-center">
                        <div className="flex items-center justify-center gap-1.5">

@@ -1,5 +1,5 @@
 import { supabase } from '../supabaseClient';
-import { calculateDuration } from './timesheetService';
+import { calculateDuration, getPayrollSettings } from './timesheetService';
 import { calculateAnnualLeave, calculateSickLeave, calculateFamilyLeave } from './leaveEngine';
 import { getSaHolidaysForYear } from './saHolidayEngine';
 
@@ -25,6 +25,46 @@ export const getOperationalSnapshot = async () => {
     pendingLeave: pendingLeave || 0,
     expiringDocs: expiringDocs || 0
   };
+};
+
+export const getMonthlyAttendanceSummary = async (month, year) => {
+  const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
+  const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+
+  const { data: employees } = await supabase.from('employees').select('id, first_name, last_name, role');
+  const { data: shifts } = await supabase
+    .from('employee_timesheets')
+    .select('*')
+    .gte('shift_date', startDate)
+    .lte('shift_date', endDate);
+
+  const summary = (employees || []).map(emp => {
+    const empShifts = (shifts || []).filter(s => s.employee_id === emp.id);
+
+    let totalHours = 0;
+    let simpleOT = 0;
+    let autoExits = 0;
+    let approvedCount = 0;
+
+    empShifts.forEach(s => {
+      const dur = parseFloat(calculateDuration(s.clock_in, s.clock_out || new Date().toISOString(), s.break_end ? 30 : 0));
+      totalHours += dur;
+      if (dur > 9) simpleOT += (dur - 9);
+      if (s.auto_clocked_out) autoExits += 1;
+      if (s.is_approved) approvedCount += 1;
+    });
+
+    return {
+      ...emp,
+      totalHours: totalHours.toFixed(1),
+      totalOvertime: simpleOT.toFixed(1),
+      totalShifts: empShifts.length,
+      autoExits,
+      approvalRate: empShifts.length > 0 ? Math.round((approvedCount / empShifts.length) * 100) : 0
+    };
+  });
+
+  return summary;
 };
 
 export const getLabourMetrics = async (startDate, endDate) => {
@@ -71,7 +111,7 @@ export const getDisciplinaryTrends = async () => {
  */
 const getScopedEmployees = async (dept, employeeId) => {
   let query = supabase.from('employees').select('*');
-  if (employeeId) query = query.eq('id', employeeId);
+  if (employeeId && employeeId !== 'All') query = query.eq('id', employeeId);
   else if (dept !== 'All') query = query.eq('department', dept);
   const { data } = await query;
   return data || [];
@@ -82,7 +122,7 @@ const getScopedEmployees = async (dept, employeeId) => {
  */
 const getScopedLeave = async (dept, employeeId, extraFilter = {}) => {
   let query = supabase.from('employee_leave').select('*, employees!inner(*)');
-  if (employeeId) query = query.eq('employee_id', employeeId);
+  if (employeeId && employeeId !== 'All') query = query.eq('employee_id', employeeId);
   else if (dept !== 'All') query = query.eq('employees.department', dept);
 
   Object.entries(extraFilter).forEach(([key, val]) => {
@@ -137,7 +177,7 @@ export const getSickLeaveHistory = async (dept = 'All', employeeId = null) => {
 
 export const getMedicalValidityLog = async (dept = 'All', employeeId = null) => {
   let query = supabase.from('employee_leave').select('*, employees!inner(*)').not('attachment_url', 'is', null);
-  if (employeeId) query = query.eq('employee_id', employeeId);
+  if (employeeId && employeeId !== 'All') query = query.eq('employee_id', employeeId);
   else if (dept !== 'All') query = query.eq('employees.department', dept);
   const { data } = await query;
   return (data || []).map(r => ({
@@ -254,7 +294,7 @@ export const getMaternityServiceRecord = async (dept = 'All', employeeId = null)
 export const getCustomLeaveReport = async (filters = {}) => {
   const { dept = 'All', leaveType = 'All', employeeId = null, startDate, endDate } = filters;
   let q = supabase.from('employee_leave').select('*, employees!inner(*)');
-  if (employeeId) q = q.eq('employee_id', employeeId);
+  if (employeeId && employeeId !== 'All') q = q.eq('employee_id', employeeId);
   else if (dept !== 'All') q = q.eq('employees.department', dept);
   if (leaveType !== 'All') q = q.eq('leave_type', leaveType);
   if (startDate) q = q.gte('start_date', startDate);
@@ -269,4 +309,259 @@ export const getEmployeeStatutoryPack = async (employeeId) => {
   const { data: docs } = await supabase.from('employee_documents').select('*').eq('employee_id', employeeId);
   const { data: warnings } = await supabase.from('employee_warnings').select('*').eq('employee_id', employeeId);
   return { profile: emp, leave_ledger: leave || [], document_registry: docs || [], disciplinary_record: warnings || [], current_balances: { annual: calculateAnnualLeave(emp, leave || []).toFixed(2), sick: calculateSickLeave(emp, leave || []), family: calculateFamilyLeave(emp, leave || []) } };
+};
+
+// --- ⏰ TIME & ATTENDANCE SPECIALIZED REPORTS (INDIVIDUAL & DEPT CAPABLE) ---
+
+/**
+ * Common query helper for attendance filtered by dept/id
+ */
+const getScopedAttendance = (dept = 'All', employeeId = null) => {
+  let query = supabase.from('employee_timesheets').select('*, employees!inner(*)');
+  if (employeeId && employeeId !== 'All') query = query.eq('employee_id', employeeId);
+  else if (dept !== 'All') query = query.eq('employees.department', dept);
+  return query;
+};
+
+/**
+ * Common query helper for schedules filtered by dept/id
+ */
+const getScopedSchedules = (dept = 'All', employeeId = null) => {
+  let query = supabase.from('employee_schedules').select('*, employees!inner(*)');
+  if (employeeId && employeeId !== 'All') query = query.eq('employee_id', employeeId);
+  else if (dept !== 'All') query = query.eq('employees.department', dept);
+  return query;
+};
+
+export const getDailyAttendanceLog = async (startDate, endDate, dept = 'All', employeeId = null) => {
+  const { data, error } = await getScopedAttendance(dept, employeeId)
+    .gte('shift_date', startDate)
+    .lte('shift_date', endDate)
+    .order('clock_in', { ascending: true });
+  if (error) throw error;
+  return data;
+};
+
+export const getMissingPunchesReport = async (dept = 'All', employeeId = null) => {
+  const { data, error } = await getScopedAttendance(dept, employeeId)
+    .is('clock_out', null)
+    .lt('clock_in', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString());
+  if (error) throw error;
+  return data;
+};
+
+export const getTardinessAnalysisReport = async (startDate, endDate, dept = 'All', employeeId = null) => {
+  const { data: shifts } = await getScopedAttendance(dept, employeeId).gte('shift_date', startDate).lte('shift_date', endDate);
+  const { data: schedules } = await getScopedSchedules(dept, employeeId).gte('shift_date', startDate).lte('shift_date', endDate);
+
+  return (shifts || []).map(s => {
+    const sch = (schedules || []).find(sc => sc.employee_id === s.employee_id && sc.shift_date === s.shift_date);
+    if (!sch) return null;
+    const diff = (new Date(s.clock_in) - new Date(sch.scheduled_in)) / (1000 * 60);
+    return {
+      employee: `${s.employees.first_name} ${s.employees.last_name}`,
+      date: s.shift_date,
+      scheduled_in: new Date(sch.scheduled_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      actual_in: new Date(s.clock_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      delay_mins: Math.max(0, Math.round(diff))
+    };
+  }).filter(Boolean);
+};
+
+export const getLaborCostVarianceReport = async (month, year, dept = 'All') => {
+  const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
+  const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+
+  let budgetQuery = supabase.from('department_budgets').select('*').eq('month_year', startDate);
+  if (dept !== 'All') budgetQuery = budgetQuery.eq('department', dept);
+  const { data: budgets } = await budgetQuery;
+
+  const { data: shifts } = await getScopedAttendance(dept).gte('shift_date', startDate).lte('shift_date', endDate);
+
+  // Aggregate actuals by dept
+  const actuals = (shifts || []).reduce((acc, s) => {
+    const d = s.employees?.department || 'Unassigned';
+    const dur = parseFloat(calculateDuration(s.clock_in, s.clock_out || new Date().toISOString(), s.break_end ? 30 : 0));
+    const hourly = parseFloat((s.employees?.salary_wage || '0').replace(/[^0-9.]/g, '')) / 160; // Mock 160h month
+    acc[d] = (acc[d] || 0) + (dur * hourly);
+    return acc;
+  }, {});
+
+  return (budgets || []).map(b => ({
+    department: b.department,
+    budgeted: 'R' + b.budgeted_cost.toFixed(2),
+    actual: 'R' + (actuals[b.department] || 0).toFixed(2),
+    variance: 'R' + ((actuals[b.department] || 0) - b.budgeted_cost).toFixed(2)
+  }));
+};
+
+export const getOvertimeTrackingReport = async (startDate, endDate, dept = 'All', employeeId = null) => {
+  const { data } = await getScopedAttendance(dept, employeeId).gte('shift_date', startDate).lte('shift_date', endDate);
+  return (data || []).map(s => {
+    const dur = parseFloat(calculateDuration(s.clock_in, s.clock_out || new Date().toISOString(), s.break_end ? 30 : 0));
+    return dur > 9 ? {
+      name: `${s.employees.first_name} ${s.employees.last_name}`,
+      date: s.shift_date,
+      total_hours: dur.toFixed(1),
+      overtime: (dur - 9).toFixed(1)
+    } : null;
+  }).filter(Boolean);
+};
+
+export const getAbsenteeismReport = async (startDate, endDate, dept = 'All', employeeId = null) => {
+  const { data: schedules } = await getScopedSchedules(dept, employeeId).gte('shift_date', startDate).lte('shift_date', endDate);
+  const { data: shifts } = await getScopedAttendance(dept, employeeId).gte('shift_date', startDate).lte('shift_date', endDate);
+
+  return (schedules || []).filter(sch =>
+    !(shifts || []).some(s => s.employee_id === sch.employee_id && s.shift_date === sch.shift_date)
+  ).map(sch => ({
+    name: `${sch.employees.first_name} ${sch.employees.last_name}`,
+    date: sch.shift_date,
+    department: sch.department,
+    status: 'No-Show'
+  }));
+};
+
+export const getShiftVarianceReport = async (startDate, endDate, dept = 'All', employeeId = null) => {
+  const { data: schedules } = await getScopedSchedules(dept, employeeId).gte('shift_date', startDate).lte('shift_date', endDate);
+  const { data: shifts } = await getScopedAttendance(dept, employeeId).gte('shift_date', startDate).lte('shift_date', endDate);
+
+  return (schedules || []).map(sch => {
+    const act = (shifts || []).find(s => s.employee_id === sch.employee_id && s.shift_date === sch.shift_date);
+    const schDur = (new Date(sch.scheduled_out) - new Date(sch.scheduled_in)) / (1000 * 60 * 60);
+    const actDur = act ? parseFloat(calculateDuration(act.clock_in, act.clock_out || new Date().toISOString(), act.break_end ? 30 : 0)) : 0;
+    return {
+      name: `${sch.employees.first_name} ${sch.employees.last_name}`,
+      date: sch.shift_date,
+      scheduled: schDur.toFixed(1) + 'h',
+      actual: actDur.toFixed(1) + 'h',
+      variance: (actDur - schDur).toFixed(1) + 'h'
+    };
+  });
+};
+
+export const getEarlyDepartureReport = async (startDate, endDate, dept = 'All', employeeId = null) => {
+  const { data: shifts } = await getScopedAttendance(dept, employeeId).gte('shift_date', startDate).lte('shift_date', endDate);
+  const { data: schedules } = await getScopedSchedules(dept, employeeId).gte('shift_date', startDate).lte('shift_date', endDate);
+
+  return (shifts || []).map(s => {
+    const sch = (schedules || []).find(sc => sc.employee_id === s.employee_id && sc.shift_date === s.shift_date);
+    if (!sch || !s.clock_out) return null;
+    const diff = (new Date(sch.scheduled_out) - new Date(s.clock_out)) / (1000 * 60);
+    return diff > 0 ? {
+      name: `${s.employees.first_name} ${s.employees.last_name}`,
+      date: s.shift_date,
+      scheduled_out: new Date(sch.scheduled_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      actual_out: new Date(s.clock_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      early_mins: Math.round(diff) + 'm'
+    } : null;
+  }).filter(Boolean);
+};
+
+export const getApprovalStatusReport = async (startDate, endDate, dept = 'All', employeeId = null) => {
+  const { data } = await getScopedAttendance(dept, employeeId).gte('shift_date', startDate).lte('shift_date', endDate);
+  return (data || []).map(s => ({
+    name: `${s.employees.first_name} ${s.employees.last_name}`,
+    date: s.shift_date,
+    status: s.status,
+    verified: s.is_approved ? 'YES' : 'NO'
+  }));
+};
+
+export const getTotalHoursSummary = async (startDate, endDate, dept = 'All', employeeId = null) => {
+  const { data, error } = await getScopedAttendance(dept, employeeId).gte('shift_date', startDate).lte('shift_date', endDate);
+  if (error) throw error;
+
+  const summary = (data || []).reduce((acc, s) => {
+    const key = `${s.employees?.department || 'Unassigned'} - ${s.employees?.role || 'Staff'}`;
+    if (!acc[key]) acc[key] = { department: s.employees?.department, role: s.employees?.role, totalHours: 0, shifts: 0 };
+    acc[key].totalHours += parseFloat(calculateDuration(s.clock_in, s.clock_out || new Date().toISOString(), s.break_end ? 30 : 0));
+    acc[key].shifts += 1;
+    return acc;
+  }, {});
+
+  return Object.values(summary).map(s => ({
+    department: s.department,
+    role: s.role,
+    total_hours: s.totalHours.toFixed(1) + 'h',
+    shift_count: s.shifts
+  }));
+};
+
+// --- 💵 PAYROLL EXPORT ENGINE ---
+
+export const getPayrollExportData = async (startDate, endDate) => {
+  // 1. Fetch Master Data & Settings
+  const settings = await getPayrollSettings();
+  const year = new Date(startDate).getFullYear();
+  const holidays = getSaHolidaysForYear(year).map(h => h.date);
+
+  const { data: employees } = await supabase.from('employees').select('*');
+  const { data: shifts } = await supabase.from('employee_timesheets').select('*').gte('shift_date', startDate).lte('shift_date', endDate);
+  const { data: leave } = await supabase.from('employee_leave').select('*').gte('start_date', startDate).lte('end_date', endDate);
+  const { data: adjustments } = await supabase.from('employee_payroll_adjustments').select('*').gte('adjustment_date', startDate).lte('adjustment_date', endDate);
+
+  return (employees || []).map(emp => {
+    const empShifts = (shifts || []).filter(s => s.employee_id === emp.id);
+    const empLeave = (leave || []).filter(l => l.employee_id === emp.id);
+    const empAdj = (adjustments || []).filter(a => a.employee_id === emp.id);
+
+    // Calculate Hours
+    let standardPool = 0; // Mon-Sat non-holiday
+    let premiumPool15 = 0; // Sunday (if enabled)
+    let premiumPool20 = 0; // Holiday (if enabled)
+    let nightHrs = 0;
+
+    empShifts.forEach(s => {
+      const dur = parseFloat(calculateDuration(s.clock_in, s.clock_out || new Date().toISOString(), s.break_end ? 30 : 0));
+      const dateStr = s.shift_date;
+      const isSunday = new Date(s.clock_in).getDay() === 0;
+      const isHoliday = holidays.includes(dateStr);
+
+      if (isHoliday && settings.enable_holiday_premium) {
+        premiumPool20 += dur;
+      } else if (isSunday && settings.enable_sunday_premium) {
+        premiumPool15 += dur;
+      } else {
+        standardPool += dur;
+      }
+
+      // Night Shift (10pm - 6am) remains chronological check
+      const start = new Date(s.clock_in);
+      if (start.getHours() >= 22 || start.getHours() < 6) nightHrs += dur;
+    });
+
+    // Overtime Logic (Monthly Threshold)
+    let regularHrs = standardPool;
+    let thresholdOT = 0;
+
+    if (settings.enable_monthly_overtime && standardPool > settings.monthly_overtime_threshold_hrs) {
+      regularHrs = settings.monthly_overtime_threshold_hrs;
+      thresholdOT = standardPool - settings.monthly_overtime_threshold_hrs;
+    }
+
+    // Final Rates
+    const totalOT15 = thresholdOT + premiumPool15;
+    const totalOT20 = premiumPool20;
+
+    // Adjustments
+    const getAdj = (type) => empAdj.filter(a => a.adjustment_type === type).reduce((acc, a) => acc + parseFloat(a.amount), 0);
+
+    return {
+      employee_number: emp.employee_number,
+      name: `${emp.first_name} ${emp.last_name}`,
+      regular_hours: regularHrs.toFixed(1),
+      overtime_15: totalOT15.toFixed(1),
+      overtime_20: totalOT20.toFixed(1),
+      night_differential: nightHrs.toFixed(1),
+      paid_leave_hrs: empLeave.filter(l => l.status === 'Approved' && l.leave_type !== 'Unpaid Leave').length * 8,
+      unpaid_leave_hrs: empLeave.filter(l => l.leave_type === 'Unpaid Leave').length * 8,
+      tips_cc: getAdj('CC Tip'),
+      tronc: getAdj('Tronc'),
+      allowances: getAdj('Travel') + getAdj('Uniform') + getAdj('Meal'),
+      bank_changed: emp.bank_details_updated_at && emp.bank_details_updated_at >= startDate ? 'YES' : 'NO',
+      new_hire: emp.start_date >= startDate ? 'YES' : 'NO',
+      terminated: emp.end_date && emp.end_date <= endDate ? emp.end_date : 'NO'
+    };
+  });
 };

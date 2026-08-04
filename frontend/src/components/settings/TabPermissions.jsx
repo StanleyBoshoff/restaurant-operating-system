@@ -13,7 +13,7 @@ const ABILITIES = [
     { id: 'can_view_bank_details', label: 'View Bank Details', desc: 'Access to employee banking and tax information.' },
   ]},
   { group: 'Operations & Attendance', icon: ClipboardList, items: [
-    { id: 'can_view_timesheets', label: 'View Timesheet Registry', desc: 'Access to store-wide attendance logs.' },
+    { id: 'can_view_timesheets', label: 'View Attendance Registry', desc: 'Access to store-wide attendance logs.' },
     { id: 'can_export_payroll', label: 'Export Payroll Data', desc: 'Download CSV/PDF reports for payroll processing.' },
     { id: 'can_manage_checklists', label: 'Manage Checklists', desc: 'Define and clear store operational protocols.' },
     { id: 'can_submit_forms', label: 'Submit Admin Forms', desc: 'Log Incidents, Cash-Ups and Temp Logs.' },
@@ -54,17 +54,22 @@ export default function TabPermissions() {
   const fetchMatrix = async () => {
     try {
       const data = await getAllAuthorityLevels();
-      if (!data || data.length === 0) {
-        const defaults = Array.from({length: 10}, (_, i) => ({
-          level: 10 - i,
-          permissions: {}
-        }));
-        setLevels(defaults);
-      } else {
-        setLevels(data);
-      }
+
+      // Always construct a full 1-10 range to ensure all columns appear
+      const fullMatrix = Array.from({ length: 10 }, (_, i) => {
+        const level = 10 - i;
+        const existing = data?.find(d => d.level === level);
+        return {
+          level,
+          permissions: existing?.permissions || {}
+        };
+      });
+
+      setLevels(fullMatrix);
     } catch (err) {
       console.error(err);
+      // Fallback to empty defaults if DB fails
+      setLevels(Array.from({length: 10}, (_, i) => ({ level: 10 - i, permissions: {} })));
     } finally {
       setLoading(false);
     }

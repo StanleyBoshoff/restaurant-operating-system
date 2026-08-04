@@ -36,6 +36,7 @@ export default function EmployeeDirectory() {
             setEmployees(data || []);
         } catch (error) {
             console.error('Database connection error:', error.message);
+            alert("Connection Error: Data visibility may be restricted by Supabase RLS policies. Run 'DISABLE RLS' SQL if this is a development environment.");
         } finally {
             setLoading(false);
         }

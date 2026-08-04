@@ -49,7 +49,7 @@ function AppContent() {
     const path = location.pathname;
     if (path === '/' || path === '/dashboard') return 'dashboard';
     if (path.startsWith('/employees')) return 'employees';
-    if (path.startsWith('/timesheets')) return 'timesheets';
+    if (path.startsWith('/attendance')) return 'attendance';
     if (path.startsWith('/leave')) return 'leave';
     if (path.startsWith('/disciplinary')) return 'disciplinary';
     if (path.startsWith('/training')) return 'training';
@@ -68,7 +68,7 @@ function AppContent() {
   const navigationItems = [
     { id: 'dashboard', name: 'Dashboard', icon: BarChart3, path: '/dashboard' },
     { id: 'employees', name: 'Employees', icon: Users, path: '/employees' },
-    { id: 'timesheets', name: 'Timesheets', icon: Clock, path: '/timesheets' },
+    { id: 'attendance', name: 'Time & Attendance', icon: Clock, path: '/attendance' },
     { id: 'leave', name: 'Leave', icon: Calendar, path: '/leave' },
     { id: 'disciplinary', name: 'Disciplinary', icon: Gavel, path: '/disciplinary' },
     { id: 'training', name: 'Training', icon: GraduationCap, path: '/training' },
@@ -147,7 +147,7 @@ function AppContent() {
             <Route path="/dashboard" element={<Dashboard onNavigateToEmployee={(id) => navigate(`/employees/${id}`)} />} />
             <Route path="/employees" element={<EmployeeDirectory />} />
             <Route path="/employees/:id/*" element={<EmployeeWorkspacePage />} />
-            <Route path="/timesheets/*" element={<TimesheetsWorkspace />} />
+            <Route path="/attendance/*" element={<TimesheetsWorkspace />} />
             <Route path="/leave/*" element={<LeaveWorkspace />} />
             <Route path="/disciplinary/*" element={<DisciplinaryWorkspace />} />
             <Route path="/training/*" element={<TrainingWorkspace />} />

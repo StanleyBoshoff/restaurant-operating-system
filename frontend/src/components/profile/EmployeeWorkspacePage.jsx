@@ -37,7 +37,10 @@ export default function EmployeeWorkspacePage() {
 
         } catch (err) {
             console.error('Error fetching employee workspace data:', err.message);
-            setError(err.message);
+            // 💡 HINT: If you see "single JSON object" coercion error, it means the record wasn't found (likely RLS).
+            setError(err.message === 'JSON object requested, multiple (or no) rows returned'
+                ? 'Employee record not found or access denied (Check Supabase RLS policies).'
+                : err.message);
         } finally {
             setLoading(false);
         }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+
 //Fetch standalone components
 import Dashboard from './components/Dashboard';
 import Sidebar from './components/Sidebar';
@@ -19,13 +20,18 @@ import DisciplinaryWorkspace from './components/disciplinary/Workspace';
 import CommunicationWorkspace from './components/communication/Workspace';
 import ReportsWorkspace from './components/reports/Workspace';
 import SettingsWorkspace from './components/settings/Workspace';
+import Login from './components/Login';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { canAccessModule } from './utils/permissionService';
 
 import {
   Users, FileText, Globe, ShieldAlert, BarChart3, Settings,
-  Clock, Calendar, GraduationCap, CheckSquare, ClipboardList, ShieldCheck, MessageSquare, Gavel
+  Clock, Calendar, GraduationCap, CheckSquare, ClipboardList, ShieldCheck, MessageSquare, Gavel,
+  LogOut, Shield
 } from 'lucide-react';
 
 function AppContent() {
+  const { user, loading, logout } = useAuth();
   const [companyName] = useState("Restaurise");
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
   const location = useLocation();
@@ -44,6 +50,35 @@ function AppContent() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center">
+        <Shield className="w-12 h-12 text-yellow-500 animate-pulse mb-4" />
+        <div className="text-[10px] font-black text-white uppercase tracking-[0.5em] animate-pulse">
+          Initializing Secure Session...
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
+  // 🚀 MODULE-SPECIFIC REDIRECTION (Strict Matrix Driven)
+  // This ensures users are only redirected if they truly lack access to the specific module
+  const path = location.pathname;
+  const isAtDashboard = path === '/dashboard' || path === '/';
+  const isAtDirectory = path === '/employees';
+
+  if (isAtDashboard && !canAccessModule(user, 'dashboard')) {
+      return <Navigate to={`/employees/${user.id}`} replace />;
+  }
+
+  if (isAtDirectory && !canAccessModule(user, 'employees')) {
+      return <Navigate to={`/employees/${user.id}`} replace />;
+  }
 
   const getActiveModule = () => {
     const path = location.pathname;
@@ -135,8 +170,17 @@ function AppContent() {
               <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">{companyName}</span>
               <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Enterprise ROS</span>
             </div>
+
+            <button
+                onClick={logout}
+                className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all border border-slate-200"
+                title="Secure Logout"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+
             <div className="w-8 h-8 rounded-lg bg-yellow-600 flex items-center justify-center text-white font-black text-[10px] shadow-sm ring-1 ring-yellow-700/20">
-              R
+              {user.first_name?.[0] || 'U'}
             </div>
           </div>
         </header>
@@ -173,7 +217,9 @@ function AppContent() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AppContent />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

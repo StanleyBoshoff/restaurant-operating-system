@@ -6,8 +6,10 @@ import AddEmployeeForm from './AddEmployeeForm';
 import SummaryCard from './common/SummaryCard';
 import StatusBadge from './common/StatusBadge';
 import ModuleWorkspaceHeader from './common/ModuleWorkspaceHeader';
+import { useAuth } from '../context/AuthContext';
 
 export default function EmployeeDirectory() {
+    const { user: currentUser } = useAuth();
     const navigate = useNavigate();
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -30,28 +32,44 @@ export default function EmployeeDirectory() {
     async function fetchEmployees() {
         try {
             setLoading(true);
-            const { data, error } = await supabase.from('employees').select('*');
+            const { data, error } = await supabase
+                .from('employees')
+                .select(`
+                    *,
+                    role_data:roles (*)
+                `);
+
             if (error) throw error;
-            console.log("Successfully loaded employees:", data);
             setEmployees(data || []);
         } catch (error) {
             console.error('Database connection error:', error.message);
-            alert("Connection Error: Data visibility may be restricted by Supabase RLS policies. Run 'DISABLE RLS' SQL if this is a development environment.");
         } finally {
             setLoading(false);
         }
     }
-    
-    useEffect(() => {
-        fetchEmployees();
-        fetchDbRoles();
-    }, []);
 
-    const filteredEmployees = employees.filter(emp =>
+    // 🚀 LIVE REACTIVE FILTERING
+    // This ensures the list updates the INSTANT permissions change
+    const filteredEmployees = (employees || []).filter(emp => {
+        const targetLevel = emp.role_data?.authority_level || 1;
+
+        // Sysadmin (11) is ALWAYS hidden from non-sysadmins
+        if (targetLevel >= 11 && currentUser.role_data?.authority_level < 11) return false;
+
+        // Show record ONLY if the specific "can_view_lvl_X" permission is currently TRUE
+        return currentUser.role_data?.permissions?.[`can_view_lvl_${targetLevel}`] === true;
+    });
+
+    const searchedEmployees = filteredEmployees.filter(emp =>
         `${emp.first_name} ${emp.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.role?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.employee_number?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    useEffect(() => {
+        fetchEmployees();
+        fetchDbRoles();
+    }, []);
 
     return (
         <div className="space-y-6">
@@ -90,7 +108,7 @@ export default function EmployeeDirectory() {
             <SummaryCard
                 title="Personnel Database"
                 icon={Users}
-                badge={<span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{filteredEmployees.length} TOTAL</span>}
+                badge={<span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{searchedEmployees.length} TOTAL</span>}
             >
                 <div className="overflow-x-auto -mx-4 -mb-4">
                     <table className="w-full text-left border-collapse">
@@ -111,14 +129,14 @@ export default function EmployeeDirectory() {
                                         Connecting to cloud data modules...
                                     </td>
                                 </tr>
-                            ) : filteredEmployees.length === 0 ? (
+                            ) : searchedEmployees.length === 0 ? (
                                 <tr>
                                     <td className="px-6 py-12 text-slate-500 text-center italic" colSpan="5">
-                                        No employee profiles found matching your search.
+                                        No employee profiles found matching your search or permissions.
                                     </td>
                                 </tr>
                             ) : (
-                                filteredEmployees.map((emp) => (
+                                searchedEmployees.map((emp) => (
                                     <tr
                                         key={emp.id}
                                         onClick={() => navigate(`/employees/${emp.id}`)}

@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
-import { User, Phone, MapPin, Briefcase, CreditCard, ShieldAlert, DollarSign, ChevronDown, ChevronRight, Heart, Users } from 'lucide-react';
-import { canViewSensitiveField } from '../../utils/permissionService';
+import { User, Phone, MapPin, Briefcase, CreditCard, ShieldAlert, DollarSign, ChevronDown, ChevronRight, Heart, Users, X } from 'lucide-react';
+import { canViewSensitiveField, canEditProfileSection } from '../../utils/permissionService';
+import { useAuth } from '../../context/AuthContext';
 
 export default function TabDetails({ employee, dbRoles = [], onProfileUpdated }) {
-    // In a real app, this comes from an Auth Context.
-    // Mocking for Phase 3/4 testing.
-    const currentUser = { role_data: { authority_level: 10 } };
+    const { user: currentUser } = useAuth();
 
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -291,13 +290,15 @@ export default function TabDetails({ employee, dbRoles = [], onProfileUpdated })
                     <p className="text-[10px] text-slate-500 italic">Manage sensitive personnel and employment data.</p>
                 </div>
                 {!isEditing ? (
-                    <button
-                        type="button"
-                        onClick={() => setIsEditing(true)}
-                        className="text-xs bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg font-bold transition-colors shadow-sm"
-                    >
-                        Modify Details
-                    </button>
+                    canEditProfileSection(currentUser, 'personal_details', employee) && (
+                        <button
+                            type="button"
+                            onClick={() => setIsEditing(true)}
+                            className="text-xs bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-lg font-bold transition-colors shadow-sm"
+                        >
+                            Modify Details
+                        </button>
+                    )
                 ) : (
                     <div className="flex gap-2">
                         <button

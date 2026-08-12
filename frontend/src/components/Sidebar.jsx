@@ -2,18 +2,10 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { canAccessModule } from '../utils/permissionService';
+import { useAuth } from '../context/AuthContext';
 
 export default function Sidebar ({ companyName, navigationItems, sidebarOpen, setSidebarOpen }) {
-    // Hardcoded for user UI visualization phase
-    const mockUser = {
-        name: "Stanley Boshoff",
-        role: "Master Technician",
-        branch: "Admin HQ",
-        role_data: {
-            authority_level: 10,
-            permissions: { can_access_settings: true }
-        }
-    };
+    const { user, logout } = useAuth();
 
     return (
         <aside className={`bg-slate-900 text-slate-200 fixed inset-y-0 left-0 z-50 flex flex-col justify-between border-r border-slate-800 transition-all duration-300 ease-in-out
@@ -52,12 +44,12 @@ export default function Sidebar ({ companyName, navigationItems, sidebarOpen, se
                 {/* Active Staff User Profile Badge */}
                 <div className={`p-2.5 border-b border-slate-800 bg-slate-900/40 transition-all ${sidebarOpen ? 'block' : 'hidden'}`}>
                     <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-yellow-600 font-bold text-[10px] shadow-inner">
-                            SB
+                        <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-yellow-600 font-bold text-[10px] shadow-inner uppercase">
+                            {user.first_name?.[0]}{user.last_name?.[0]}
                         </div>
                         <div className="min-w-0">
-                            <p className="text-[12px] font-bold truncate text-slate-100 leading-none mb-0.5">{mockUser.name}</p>
-                            <p className="text-[8px] text-yellow-600 font-bold uppercase tracking-widest leading-none">{mockUser.role}</p>
+                            <p className="text-[12px] font-bold truncate text-slate-100 leading-none mb-0.5">{user.first_name} {user.last_name}</p>
+                            <p className="text-[8px] text-yellow-600 font-bold uppercase tracking-widest leading-none">{user.role || 'Personnel'}</p>
                         </div>
                     </div>
                 </div>
@@ -65,7 +57,7 @@ export default function Sidebar ({ companyName, navigationItems, sidebarOpen, se
                 {/* Menu loop generating NavLinks */}
                 <nav className="p-1 space-y-0">
                     {navigationItems && navigationItems
-                        .filter(item => canAccessModule(mockUser, item.id))
+                        .filter(item => canAccessModule(user, item.id))
                         .map((item) => {
                             const IconComponent = item.icon;
                         
@@ -99,7 +91,9 @@ export default function Sidebar ({ companyName, navigationItems, sidebarOpen, se
             </div>
 
             <div className="p-2 border-t border-slate-800 bg-slate-950/40 overflow-hidden shrink-0">
-                <button className={`w-full flex items-center rounded-lg text-[11px] text-slate-400 hover:bg-red-950/30 hover:text-red-400 transition-colors cursor-pointer ${
+                <button
+                    onClick={logout}
+                    className={`w-full flex items-center rounded-lg text-[11px] text-slate-400 hover:bg-red-950/30 hover:text-red-400 transition-colors cursor-pointer ${
                     sidebarOpen ? 'px-2 py-1.5 space-x-2 justify-start' : 'p-1.5 justify-center'
                 }`}>
                     <LogOut className="w-4 h-4 shrink-0" />

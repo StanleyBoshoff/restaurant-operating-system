@@ -79,6 +79,8 @@ CREATE TABLE IF NOT EXISTS employees (
     sa_id_number TEXT,
     leave_opening_balance_annual DECIMAL(5,2) DEFAULT 0,
     leave_opening_balance_date DATE,
+    auth_id UUID UNIQUE, -- Links to supabase.auth.users
+    clock_code TEXT UNIQUE, -- 5-digit code for terminal clocking
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -474,7 +476,25 @@ ALTER TABLE IF EXISTS company_payroll_settings DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS calendar_events DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS forms_submissions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS employee_schedules DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS department_budgets DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS employee_payroll_adjustments DISABLE ROW LEVEL SECURITY;
+-- ==========================================
+-- 9. PERMISSIONS & AUTHORITY SYNC
+-- ==========================================
+
+-- Trigger Function: Sync permissions from authority_levels to specific roles
+CREATE OR REPLACE FUNCTION sync_role_permissions_fn()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE roles
+    SET permissions = NEW.permissions
+    WHERE authority_level = NEW.level;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Attach Trigger to authority_levels
+DROP TRIGGER IF EXISTS trg_sync_role_permissions ON authority_levels;
+CREATE TRIGGER trg_sync_role_permissions
+AFTER INSERT OR UPDATE OF permissions ON authority_levels
+FOR EACH ROW EXECUTE FUNCTION sync_role_permissions_fn();
 
 

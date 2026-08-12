@@ -2,111 +2,83 @@
 -- South African Restaurant Context (FOH, BOH, Management)
 -- This script is IDEMPOTENT (safe to run multiple times).
 
--- 1. Ensure Roles Exist
-INSERT INTO roles (id, role_name, classification, authority_level, is_reporting_position) VALUES
-(uuid_generate_v4(), 'General Manager', 'Management', 3, TRUE),
-(uuid_generate_v4(), 'Head Chef', 'Management', 3, TRUE),
-(uuid_generate_v4(), 'Floor Manager', 'Management', 4, TRUE),
-(uuid_generate_v4(), 'Sous Chef', 'BOH', 4, TRUE),
-(uuid_generate_v4(), 'Senior Waiter', 'FOH', 5, FALSE),
-(uuid_generate_v4(), 'Line Cook', 'BOH', 6, FALSE),
-(uuid_generate_v4(), 'Waiter', 'FOH', 6, FALSE),
-(uuid_generate_v4(), 'Runner', 'FOH', 6, FALSE),
-(uuid_generate_v4(), 'Cleaner', 'BOH', 6, FALSE)
+-- 1. Ensure Roles Exist with full permissions for higher levels
+INSERT INTO roles (role_name, classification, authority_level, is_reporting_position, permissions) VALUES
+('Master Technician', 'Admin', 10, TRUE, '{"can_access_settings": true, "can_view_salary": true, "can_manage_disciplinary": true, "can_approve_leave": true, "can_view_all_staff": true, "can_edit_personnel": true, "can_delete_personnel": true, "can_view_financial_reports": true, "can_export_data": true, "can_edit_attendance_register": true, "can_edit_committed_timesheets": true, "can_edit_terminal_records": true, "can_view_reports": true, "can_view_timesheets": true, "can_view_leave_tracker": true, "can_manage_checklists": true, "can_submit_forms": true, "can_manage_training": true, "can_access_safety": true, "can_access_communication": true}'),
+('Owner', 'Management', 9, TRUE, '{"can_access_settings": true, "can_view_salary": true, "can_manage_disciplinary": true, "can_approve_leave": true, "can_view_all_staff": true, "can_view_reports": true, "can_view_timesheets": true}'),
+('HR Manager', 'Management', 8, TRUE, '{"can_access_settings": false, "can_view_salary": true, "can_manage_disciplinary": true, "can_approve_leave": true, "can_view_all_staff": true, "can_view_reports": true}'),
+('General Manager', 'Management', 7, TRUE, '{"can_access_settings": false, "can_view_salary": true, "can_manage_disciplinary": true, "can_approve_leave": true, "can_view_all_staff": true, "can_view_reports": true}'),
+('Head Chef', 'Management', 6, TRUE, '{"can_manage_disciplinary": true, "can_approve_leave": true, "can_view_all_staff": false}'),
+('Floor Manager', 'Management', 5, TRUE, '{"can_manage_disciplinary": true, "can_approve_leave": false}'),
+('Sous Chef', 'BOH', 4, TRUE, '{"can_manage_disciplinary": false, "can_approve_leave": false}'),
+('Senior Waiter', 'FOH', 3, FALSE, '{"can_manage_disciplinary": false, "can_approve_leave": false}'),
+('Waiter', 'FOH', 2, FALSE, '{}'),
+('Entry Level', 'BOH', 1, FALSE, '{}')
 ON CONFLICT (role_name) DO UPDATE SET
     authority_level = EXCLUDED.authority_level,
-    is_reporting_position = EXCLUDED.is_reporting_position;
+    is_reporting_position = EXCLUDED.is_reporting_position,
+    permissions = EXCLUDED.permissions;
 
--- 2. Insert 20 Employees
+-- 2. Insert 20 Employees with unique emails and 5-digit clock codes
 DO $$
 DECLARE
-    role_gm UUID; role_hc UUID; role_fm UUID; role_sc UUID;
-    role_sw UUID; role_lc UUID; role_w UUID; role_r UUID; role_c UUID;
-    emp_gm UUID; emp_hc UUID; emp_fm UUID;
+    role_mt UUID; role_owner UUID; role_hr UUID; role_gm UUID; role_hc UUID; role_fm UUID; role_sc UUID; role_sw UUID; role_w UUID; role_e UUID;
 BEGIN
+    SELECT id INTO role_mt FROM roles WHERE role_name = 'Master Technician';
+    SELECT id INTO role_owner FROM roles WHERE role_name = 'Owner';
+    SELECT id INTO role_hr FROM roles WHERE role_name = 'HR Manager';
     SELECT id INTO role_gm FROM roles WHERE role_name = 'General Manager';
     SELECT id INTO role_hc FROM roles WHERE role_name = 'Head Chef';
     SELECT id INTO role_fm FROM roles WHERE role_name = 'Floor Manager';
     SELECT id INTO role_sc FROM roles WHERE role_name = 'Sous Chef';
     SELECT id INTO role_sw FROM roles WHERE role_name = 'Senior Waiter';
-    SELECT id INTO role_lc FROM roles WHERE role_name = 'Line Cook';
     SELECT id INTO role_w FROM roles WHERE role_name = 'Waiter';
-    SELECT id INTO role_r FROM roles WHERE role_name = 'Runner';
-    SELECT id INTO role_c FROM roles WHERE role_name = 'Cleaner';
+    SELECT id INTO role_e FROM roles WHERE role_name = 'Entry Level';
 
-    -- Manager: Stanley (GM)
-    INSERT INTO employees (id, first_name, last_name, role_id, role, department, employment_type, start_date, branch, sa_id_number, employee_number, nationality)
-    VALUES (uuid_generate_v4(), 'Stanley', 'Boshoff', role_gm, 'General Manager', 'Management', 'Full Time', '2025-01-01', 'Centurion Central', '8501015000081', 'EMP001', 'South African')
+    -- 1. Superadmin: Stanley
+    INSERT INTO employees (first_name, last_name, email, role_id, role, department, employment_type, start_date, employee_number, clock_code, sa_id_number, nationality)
+    VALUES ('Stanley', 'Boshoff', 'stanleyboshoff@gmail.com', role_mt, 'Master Technician', 'Admin', 'Full Time', '2025-01-01', 'EMP001', '10010', '8501015000081', 'South African')
     ON CONFLICT (employee_number) DO UPDATE SET
-        first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, role_id = EXCLUDED.role_id, role = EXCLUDED.role,
-        department = EXCLUDED.department, employment_type = EXCLUDED.employment_type, start_date = EXCLUDED.start_date,
-        branch = EXCLUDED.branch, sa_id_number = EXCLUDED.sa_id_number, nationality = EXCLUDED.nationality
-    RETURNING id INTO emp_gm;
+        email = EXCLUDED.email, role_id = EXCLUDED.role_id, role = EXCLUDED.role, clock_code = EXCLUDED.clock_code, sa_id_number = EXCLUDED.sa_id_number;
 
-    -- Kitchen Lead
-    INSERT INTO employees (id, first_name, last_name, role_id, role, department, employment_type, start_date, branch, reports_to_id, employee_number, nationality)
-    VALUES (uuid_generate_v4(), 'Thabo', 'Mokoena', role_hc, 'Head Chef', 'BOH', 'Full Time', '2025-02-15', 'Centurion Central', emp_gm, 'EMP002', 'South African')
-    ON CONFLICT (employee_number) DO UPDATE SET
-        first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, role_id = EXCLUDED.role_id, role = EXCLUDED.role,
-        department = EXCLUDED.department, employment_type = EXCLUDED.employment_type, start_date = EXCLUDED.start_date,
-        branch = EXCLUDED.branch, reports_to_id = EXCLUDED.reports_to_id, nationality = EXCLUDED.nationality
-    RETURNING id INTO emp_hc;
+    -- 2. Level 9: Owner
+    INSERT INTO employees (first_name, last_name, email, role_id, role, department, employment_type, start_date, employee_number, clock_code, sa_id_number, nationality)
+    VALUES ('Owner', 'User', 'level9@rems.test', role_owner, 'Owner', 'Management', 'Full Time', '2025-01-01', 'EMP009', '10009', '8001015000081', 'South African')
+    ON CONFLICT (employee_number) DO UPDATE SET email = EXCLUDED.email;
 
-    -- FOH Manager
-    INSERT INTO employees (id, first_name, last_name, role_id, role, department, employment_type, start_date, branch, reports_to_id, employee_number, nationality)
-    VALUES (uuid_generate_v4(), 'Sarah', 'Smit', role_fm, 'Floor Manager', 'FOH', 'Full Time', '2025-03-01', 'Centurion Central', emp_gm, 'EMP003', 'South African')
-    ON CONFLICT (employee_number) DO UPDATE SET
-        first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, role_id = EXCLUDED.role_id, role = EXCLUDED.role,
-        department = EXCLUDED.department, employment_type = EXCLUDED.employment_type, start_date = EXCLUDED.start_date,
-        branch = EXCLUDED.branch, reports_to_id = EXCLUDED.reports_to_id, nationality = EXCLUDED.nationality
-    RETURNING id INTO emp_fm;
+    -- 3. Level 8: HR
+    INSERT INTO employees (first_name, last_name, email, role_id, role, department, employment_type, start_date, employee_number, clock_code, sa_id_number, nationality)
+    VALUES ('HR', 'Manager', 'level8@rems.test', role_hr, 'HR Manager', 'Management', 'Full Time', '2025-01-01', 'EMP008', '10008', '8101015000081', 'South African')
+    ON CONFLICT (employee_number) DO UPDATE SET email = EXCLUDED.email;
 
-    -- Batch Insert Staff
-    INSERT INTO employees (first_name, last_name, role_id, role, department, employment_type, start_date, branch, reports_to_id, employee_number, nationality)
-    VALUES
-    ('John', 'Doe', role_sw, 'Senior Waiter', 'FOH', 'Full Time', '2025-05-10', 'Centurion Central', emp_fm, 'EMP004', 'South African'),
-    ('Lerato', 'Khumalo', role_w, 'Waiter', 'FOH', 'Part Time', '2025-06-20', 'Centurion Central', emp_fm, 'EMP005', 'South African'),
-    ('David', 'Miller', role_w, 'Waiter', 'FOH', 'Casual', '2025-07-01', 'Centurion Central', emp_fm, 'EMP006', 'South African'),
-    ('Nomvula', 'Zwane', role_w, 'Waiter', 'FOH', 'Part Time', '2025-07-15', 'Centurion Central', emp_fm, 'EMP007', 'South African'),
-    ('Kevin', 'Naidoo', role_r, 'Runner', 'FOH', 'Casual', '2025-08-01', 'Centurion Central', emp_fm, 'EMP008', 'South African'),
-    ('Elena', 'Petrova', role_r, 'Runner', 'FOH', 'Full Time', '2025-08-10', 'Centurion Central', emp_fm, 'EMP009', 'Bulgarian'),
-    ('Sipho', 'Dlamini', role_w, 'Waiter', 'FOH', 'Part Time', '2025-08-20', 'Centurion Central', emp_fm, 'EMP010', 'South African'),
-    ('Andre', 'van Wyk', role_sc, 'Sous Chef', 'BOH', 'Full Time', '2025-04-01', 'Centurion Central', emp_hc, 'EMP011', 'South African'),
-    ('Buhle', 'Guma', role_lc, 'Line Cook', 'BOH', 'Full Time', '2025-05-01', 'Centurion Central', emp_hc, 'EMP012', 'South African'),
-    ('Peter', 'Jones', role_lc, 'Line Cook', 'BOH', 'Part Time', '2025-06-01', 'Centurion Central', emp_hc, 'EMP013', 'South African'),
-    ('Grace', 'Molefe', role_lc, 'Line Cook', 'BOH', 'Full Time', '2025-06-15', 'Centurion Central', emp_hc, 'EMP014', 'South African'),
-    ('Mandla', 'Nkosi', role_lc, 'Line Cook', 'BOH', 'Casual', '2025-07-01', 'Centurion Central', emp_hc, 'EMP015', 'South African'),
-    ('Tshepo', 'Radebe', role_c, 'Cleaner', 'BOH', 'Full Time', '2025-01-10', 'Centurion Central', emp_hc, 'EMP016', 'South African'),
-    ('Zanele', 'Mbeki', role_c, 'Cleaner', 'BOH', 'Full Time', '2025-02-01', 'Centurion Central', emp_hc, 'EMP017', 'South African'),
-    ('Riaan', 'Botha', role_lc, 'Line Cook', 'BOH', 'Part Time', '2025-03-20', 'Centurion Central', emp_hc, 'EMP018', 'South African'),
-    ('Maria', 'Garcia', role_lc, 'Line Cook', 'BOH', 'Full Time', '2025-04-10', 'Centurion Central', emp_hc, 'EMP019', 'Spanish'),
-    ('Fikile', 'Zulu', role_lc, 'Line Cook', 'BOH', 'Full Time', '2025-05-05', 'Centurion Central', emp_hc, 'EMP020', 'South African')
-    ON CONFLICT (employee_number) DO UPDATE SET
-        first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, role_id = EXCLUDED.role_id, role = EXCLUDED.role,
-        department = EXCLUDED.department, employment_type = EXCLUDED.employment_type, start_date = EXCLUDED.start_date,
-        branch = EXCLUDED.branch, reports_to_id = EXCLUDED.reports_to_id, nationality = EXCLUDED.nationality;
+    -- 4. Level 7: GM (Thabo)
+    INSERT INTO employees (first_name, last_name, email, role_id, role, department, employment_type, start_date, employee_number, clock_code, sa_id_number, nationality)
+    VALUES ('Thabo', 'Mokoena', 'level7@rems.test', role_gm, 'General Manager', 'Management', 'Full Time', '2025-02-15', 'EMP007', '10007', '8201155000081', 'South African')
+    ON CONFLICT (employee_number) DO UPDATE SET email = EXCLUDED.email;
+
+    -- 5. Level 6: Head Chef
+    INSERT INTO employees (first_name, last_name, email, role_id, role, department, employment_type, start_date, employee_number, clock_code, passport_number, nationality)
+    VALUES ('Chef', 'Thabo', 'level6@rems.test', role_hc, 'Head Chef', 'BOH', 'Full Time', '2025-02-15', 'EMP006', '10006', 'P1234567', 'South African')
+    ON CONFLICT (employee_number) DO UPDATE SET email = EXCLUDED.email;
+
+    -- 6. Level 5: Floor Manager
+    INSERT INTO employees (first_name, last_name, email, role_id, role, department, employment_type, start_date, employee_number, clock_code, sa_id_number, nationality)
+    VALUES ('Sarah', 'Smit', 'level5@rems.test', role_fm, 'Floor Manager', 'Management', 'Full Time', '2025-03-01', 'EMP005', '10005', '8303015000081', 'South African')
+    ON CONFLICT (employee_number) DO UPDATE SET email = EXCLUDED.email;
+
+    -- 7. Level 4: Sous Chef
+    INSERT INTO employees (first_name, last_name, email, role_id, role, department, employment_type, start_date, employee_number, clock_code, passport_number, nationality)
+    VALUES ('Andre', 'van Wyk', 'level4@rems.test', role_sc, 'Sous Chef', 'BOH', 'Full Time', '2025-04-01', 'EMP004', '10004', 'P2234567', 'South African')
+    ON CONFLICT (employee_number) DO UPDATE SET email = EXCLUDED.email;
+
+    -- 8. Level 3: Senior Waiter
+    INSERT INTO employees (first_name, last_name, email, role_id, role, department, employment_type, start_date, employee_number, clock_code, sa_id_number, nationality)
+    VALUES ('John', 'Doe', 'level3@rems.test', role_sw, 'Senior Waiter', 'FOH', 'Full Time', '2025-05-10', 'EMP003', '10003', '8405105000081', 'South African')
+    ON CONFLICT (employee_number) DO UPDATE SET email = EXCLUDED.email;
+
+    -- 9. Level 2: Waiter
+    INSERT INTO employees (first_name, last_name, email, role_id, role, department, employment_type, start_date, employee_number, clock_code, sa_id_number, nationality)
+    VALUES ('Lerato', 'Khumalo', 'level2@rems.test', role_w, 'Waiter', 'FOH', 'Part Time', '2025-06-20', 'EMP002', '10002', '8606205000081', 'South African')
+    ON CONFLICT (employee_number) DO UPDATE SET email = EXCLUDED.email;
 
 END $$;
-
--- 3. Mock Schedules (For Variance Reports)
-INSERT INTO employee_schedules (employee_id, shift_date, scheduled_in, scheduled_out, department)
-SELECT id, CURRENT_DATE - INTERVAL '1 day', CURRENT_DATE - INTERVAL '1 day' + INTERVAL '8 hours', CURRENT_DATE - INTERVAL '1 day' + INTERVAL '17 hours', department FROM employees
-ON CONFLICT (employee_id, shift_date) DO NOTHING;
-
--- 4. Mock Timesheets (For Attendance Reports)
-INSERT INTO employee_timesheets (employee_id, shift_date, clock_in, clock_out, status, is_approved)
-SELECT id, CURRENT_DATE - INTERVAL '1 day', CURRENT_DATE - INTERVAL '1 day' + INTERVAL '8 hours', CURRENT_DATE - INTERVAL '1 day' + INTERVAL '17 hours', 'Completed', TRUE FROM employees
-ON CONFLICT (employee_id, shift_date) DO NOTHING;
-
--- 5. Mock Payroll Adjustments (Tips, Allowances)
-INSERT INTO employee_payroll_adjustments (employee_id, adjustment_type, amount, notes)
-SELECT id, 'CC Tip', (RANDOM() * 500 + 100), 'Monthly allocation' FROM employees WHERE role = 'Waiter'
-ON CONFLICT DO NOTHING;
-
--- 6. Mock Budgets
-INSERT INTO department_budgets (department, branch, month_year, budgeted_hours, budgeted_cost)
-VALUES
-('FOH', 'Centurion Central', date_trunc('month', CURRENT_DATE), 1200, 45000),
-('BOH', 'Centurion Central', date_trunc('month', CURRENT_DATE), 800, 32000),
-('Management', 'Centurion Central', date_trunc('month', CURRENT_DATE), 320, 25000)
-ON CONFLICT (department, branch, month_year) DO UPDATE SET budgeted_hours = EXCLUDED.budgeted_hours, budgeted_cost = EXCLUDED.budgeted_cost;

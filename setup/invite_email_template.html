@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 40px auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .header { background: #0f172a; padding: 40px 20px; text-align: center; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 4px; font-weight: 900; }
+        .header span { color: #ca8a04; }
+        .content { padding: 40px; color: #1e293b; line-height: 1.6; }
+        .content h2 { font-size: 18px; font-weight: 700; margin-top: 0; color: #0f172a; }
+        .btn-container { text-align: center; margin: 30px 0; }
+        .btn { background: #0f172a; color: #ffffff !important; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; display: inline-block; border: 1px solid #ca8a04; }
+        .footer { background: #f1f5f9; padding: 20px; text-align: center; font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+        .highlight { color: #ca8a04; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Restaur<span>ise</span></h1>
+        </div>
+        <div class="content">
+            <h2>System Access Authorization</h2>
+            <p>You have been officially onboarded to the <strong>Restaurise Management Command Center</strong>.</p>
+            <p>To finalize your administrative profile and activate your security credentials, you must establish your access password using the secure link below.</p>
+
+            <div class="btn-container">
+                <a href="{{ .ConfirmationURL }}" class="btn">Authorize Access</a>
+            </div>
+
+            <p>Please note: This link is time-sensitive and will expire. If you did not expect this authorization, please contact your System Administrator immediately.</p>
+            <p>Restricted Area • <span class="highlight">Authorized Administrative Access</span></p>
+        </div>
+        <div class="footer">
+            &copy; 2026 RESTAURISE ROS • ENTERPRISE GRADE SECURITY • CCMA COMPLIANT
+        </div>
+    </div>
+</body>
+</html>

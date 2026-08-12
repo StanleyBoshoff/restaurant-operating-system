@@ -248,11 +248,32 @@ export default function AddEmployeeForm({ onClose, onRefresh, dbRoles, editingEm
                   if (error) throw error;
             } else {
 
-                const { error } = await supabase
+                const { data: newEmployee, error } = await supabase
                     .from('employees')
-                    .insert([submissionData]);
+                    .insert([submissionData])
+                    .select()
+                    .single();
 
                 if (error) throw error;
+
+                // 📩 TRIGGER ONBOARDING EMAIL
+                if (submissionData.email) {
+                    try {
+                        const selectedRole = dbRoles.find(r => r.id === submissionData.role_id);
+                        const authLevel = selectedRole?.authority_level || 1;
+
+                        const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+                            submissionData.email,
+                            { data: { authority_level: authLevel } }
+                        );
+
+                        if (inviteError) {
+                            console.warn("Auth Invite failed (likely permission restricted):", inviteError.message);
+                        }
+                    } catch (e) {
+                        console.error("Onboarding trigger error:", e);
+                    }
+                }
             }
             // Success: Tell the directory pass to reload its list and close the popup
             onRefresh();

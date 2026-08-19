@@ -1,25 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import SummaryCard from '../common/SummaryCard';
-import { ClipboardList, CheckCircle2, Circle, AlertCircle, Save, UserCheck, Trash2 } from 'lucide-react';
+import { ClipboardList, CheckCircle2, AlertCircle, Save, UserCheck, Trash2, Timer, User, ShieldAlert, CheckCircle, Clock } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
-import { getChecklistItems, submitChecklist } from '../../utils/checklistService';
+import { getChecklistItems, submitChecklist, getAssignedStaffForChecklist } from '../../utils/checklistService';
+import ChecklistItemMobile from './ChecklistItemMobile';
+import CommentModal from './CommentModal';
+import { useAuth } from '../../context/AuthContext';
 
 export default function TabOpening() {
+  const { user: currentUser } = useAuth();
   const [items, setItems] = useState([]);
-  const [completedIds, setCompletedIds] = useState(new Set());
-  const [signingManager, setSigningManager] = useState('');
+  const [submissionData, setSubmissionData] = useState({}); // { itemId: { status, comment, quantity } }
+  const [assignedStaff, setAssignedStaff] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [startedAt] = useState(new Date().toISOString());
+
+  // Comment Modal State
+  const [commentTargetId, setCommentTargetId] = useState(null);
 
   useEffect(() => {
     fetchItems();
+    fetchAssignment();
 
-    // Recovery from local storage for in-progress work
-    const saved = localStorage.getItem('ros_opening_checklist_draft');
+    // Recovery from local storage
+    const saved = localStorage.getItem('ros_opening_checklist_v2_draft');
     if (saved) {
-      const { completed, manager } = JSON.parse(saved);
-      setCompletedIds(new Set(completed));
-      setSigningManager(manager);
+      setSubmissionData(JSON.parse(saved));
     }
   }, []);
 
@@ -29,188 +36,188 @@ export default function TabOpening() {
       const data = await getChecklistItems('Opening Duty');
       setItems(data || []);
     } catch (err) {
-      console.error("Failed to load checklist items:", err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleTask = (id) => {
-    const newSet = new Set(completedIds);
-    if (newSet.has(id)) newSet.delete(id);
-    else newSet.add(id);
-    setCompletedIds(newSet);
-    setIsSaved(false);
+  const fetchAssignment = async () => {
+     // Check who should be doing this based on permissions
+     const staff = await getAssignedStaffForChecklist('can_perform_opening_checks');
+     setAssignedStaff(staff);
+  };
 
-    // Save draft locally
-    localStorage.setItem('ros_opening_checklist_draft', JSON.stringify({
-      completed: Array.from(newSet),
-      manager: signingManager
-    }));
+  const handleItemChange = (itemId, value) => {
+    const newData = { ...submissionData, [itemId]: value };
+    setSubmissionData(newData);
+    setIsSaved(false);
+    localStorage.setItem('ros_opening_checklist_v2_draft', JSON.stringify(newData));
   };
 
   const handleSave = async () => {
-    if (!signingManager) return alert("Please enter manager name for sign-off.");
+    if (!currentUser) return alert("You must be logged in to sign off.");
 
-    const submissionData = items.map(item => ({
-      id: item.id,
-      task: item.task_description,
-      completed: completedIds.has(item.id)
-    }));
+    // Validate: Mandatory items + Crosses need comments
+    for (const item of items) {
+       const val = submissionData[item.id];
+       if (item.is_mandatory && !val?.status) {
+          return alert(`Mandatory Item Missing: ${item.task_description}`);
+       }
+       if (val?.status === 'cross' && !val?.comment) {
+          return alert(`Comment Required: Please explain the issue for '${item.task_description}'`);
+       }
+    }
 
     try {
-      await submitChecklist('Opening Duty', submissionData, signingManager);
+      await submitChecklist('Opening Duty', submissionData, currentUser.id, `${currentUser.first_name} ${currentUser.last_name}`, startedAt);
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 3000);
-
-      // Clear draft
-      localStorage.removeItem('ros_opening_checklist_draft');
+      localStorage.removeItem('ros_opening_checklist_v2_draft');
+      setSubmissionData({});
+      alert("Opening Protocol successfully committed and archived.");
     } catch (err) {
-      alert("Failed to submit checklist: " + err.message);
+      alert("Submission failed: " + err.message);
     }
   };
 
   const clearChecklist = () => {
-    if (window.confirm("Are you sure you want to reset the opening checklist?")) {
-      setCompletedIds(new Set());
-      setSigningManager('');
-      localStorage.removeItem('ros_opening_checklist');
+    if (window.confirm("Reset entire checklist and clear progress?")) {
+      setSubmissionData({});
+      localStorage.removeItem('ros_opening_checklist_v2_draft');
     }
   };
 
-  const categories = [...new Set(items.map(i => i.category || 'General'))];
-  const progress = items.length > 0 ? Math.round((completedIds.size / items.length) * 100) : 0;
+  const progress = items.length > 0
+    ? Math.round((Object.keys(submissionData).filter(id => submissionData[id]?.status).length / items.length) * 100)
+    : 0;
 
-  if (loading) return (
-    <div className="py-20 text-center italic text-slate-400 animate-pulse">
-       Loading store protocols from secure vault...
-    </div>
-  );
+  const categories = [...new Set(items.map(i => i.category || 'General'))];
+
+  if (loading) return <div className="py-20 text-center italic text-slate-400 animate-pulse">Syncing store protocols...</div>;
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
 
-      {/* Progress Header */}
+      {/* 1. Assignment & Status Header */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <SummaryCard title="Opening Readiness" icon={ClipboardList}>
-          <div className="flex items-end gap-3">
-            <h2 className="text-4xl font-black text-slate-900">{progress}%</h2>
-            <div className="flex-1 h-2 bg-slate-100 rounded-full mb-2 overflow-hidden">
-              <div
-                className="h-full bg-yellow-600 transition-all duration-700"
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
-          </div>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">
-            {completedIds.size} of {items.length} tasks completed
-          </p>
+        <SummaryCard title="Current Responsibility" icon={UserCheck}>
+           <div className="flex items-center gap-4 py-1">
+              <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center font-black text-emerald-400 shadow-xl border border-slate-800">
+                 {assignedStaff ? `${assignedStaff.first_name[0]}${assignedStaff.last_name[0]}` : '??'}
+              </div>
+              <div>
+                 <p className="text-xs font-black text-slate-900 uppercase tracking-tight">
+                    {assignedStaff ? `${assignedStaff.first_name} ${assignedStaff.last_name}` : 'Awaiting Manager...'}
+                 </p>
+                 <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Assignee</span>
+                    <span className="w-1 h-1 rounded-full bg-slate-300" />
+                    <span className="text-[8px] font-black text-emerald-600 uppercase">Lowest LVL Qualified</span>
+                 </div>
+              </div>
+           </div>
+           {assignedStaff?.id === currentUser?.id ? (
+             <div className="mt-3 p-2 bg-emerald-50 border border-emerald-100 rounded-xl text-center">
+                <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">You are accountable for this shift</p>
+             </div>
+           ) : (
+             <div className="mt-3 p-2 bg-slate-50 border border-slate-100 rounded-xl text-center">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Viewing in monitoring mode</p>
+             </div>
+           )}
         </SummaryCard>
 
-        <SummaryCard title="Compliance Status" icon={AlertCircle}>
-          <div className="flex items-center gap-3 py-2">
-            {progress === 100 ? (
-              <div className="flex items-center gap-2 text-green-600 font-black text-sm">
-                <CheckCircle2 size={20} />
-                READY FOR SERVICE
+        <SummaryCard title="Live Progress" icon={Timer}>
+           <div className="flex items-end justify-between gap-4">
+              <h2 className="text-5xl font-black text-slate-900 tracking-tighter leading-none">{progress}%</h2>
+              <div className="flex-1 pb-1">
+                 <div className="h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner border border-slate-100">
+                    <div className="h-full bg-emerald-500 transition-all duration-1000 shadow-lg" style={{ width: `${progress}%` }} />
+                 </div>
               </div>
-            ) : (
-              <div className="flex items-center gap-2 text-amber-600 font-black text-sm">
-                <AlertCircle size={20} />
-                SETUP IN PROGRESS
-              </div>
-            )}
-          </div>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2 italic">
-            All mandatory items must be checked.
-          </p>
+           </div>
+           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-3">
+              {Object.keys(submissionData).filter(id => submissionData[id]?.status).length} of {items.length} Points Verified
+           </p>
         </SummaryCard>
 
-        <SummaryCard title="Digital Sign-off" icon={UserCheck}>
-          <input
-            type="text"
-            placeholder="Manager Name..."
-            value={signingManager}
-            onChange={(e) => setSigningManager(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-2 focus:ring-yellow-500/20"
-          />
-          <div className="flex gap-2 mt-2">
-            <button
-              onClick={handleSave}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${
-                isSaved ? 'bg-green-600 text-white' : 'bg-slate-900 text-white hover:bg-slate-800'
-              }`}
-            >
-              <Save size={12} />
-              {isSaved ? 'Submission Saved' : 'Save Progress'}
-            </button>
-            <button
-              onClick={clearChecklist}
-              className="px-3 py-2 bg-white border border-slate-200 text-rose-600 rounded-lg hover:bg-rose-50 transition-all"
-            >
-              <Trash2 size={12} />
-            </button>
-          </div>
+        <SummaryCard title="Protocol Actions" icon={Save}>
+           <div className="space-y-2">
+              <button
+                onClick={handleSave}
+                disabled={progress < 50}
+                className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${
+                    progress === 100
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    : 'bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-30'
+                }`}
+              >
+                 <CheckCircle size={18} />
+                 <span className="text-[10px] font-black uppercase tracking-widest">Submit & Archive</span>
+              </button>
+              <button onClick={clearChecklist} className="w-full py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-rose-600 transition-colors">
+                 Reset Progress
+              </button>
+           </div>
         </SummaryCard>
       </div>
 
-      {/* Checklist Groups */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* 2. Checklist Groups (Mobile Optimized) */}
+      <div className="space-y-8">
         {categories.map(cat => (
-          <SummaryCard
-            key={cat}
-            title={cat}
-            icon={ClipboardList}
-            badge={<StatusBadge status={completedIds.size === items.length ? 'Ready' : 'Pending'} />}
-          >
-            <div className="space-y-1">
-              {items.filter(i => i.category === cat).map(task => (
-                <button
-                  key={task.id}
-                  onClick={() => toggleTask(task.id)}
-                  className={`w-full flex items-start gap-4 p-3 rounded-xl transition-all text-left ${
-                    completedIds.has(task.id)
-                    ? 'bg-slate-50 text-slate-400'
-                    : 'bg-white hover:bg-slate-50 text-slate-700 border border-transparent hover:border-slate-100'
-                  }`}
-                >
-                  <div className="mt-0.5">
-                    {completedIds.has(task.id)
-                      ? <CheckCircle2 size={18} className="text-yellow-600" />
-                      : <Circle size={18} className="text-slate-200" />
-                    }
-                  </div>
-                  <div className="flex-1">
-                    <p className={`text-xs font-bold ${completedIds.has(task.id) ? 'line-through decoration-slate-300' : ''}`}>
-                      {task.task_description}
-                    </p>
-                    {task.is_mandatory && (
-                      <span className="text-[9px] font-black text-rose-500 uppercase tracking-tighter">Mandatory Compliance Item</span>
-                    )}
-                  </div>
-                </button>
-              ))}
+          <div key={cat} className="space-y-4">
+            <div className="flex items-center gap-4 px-2">
+               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{cat}</h4>
+               <div className="flex-1 h-px bg-slate-100" />
             </div>
-          </SummaryCard>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+               {items.filter(i => i.category === cat).map(item => (
+                 <ChecklistItemMobile
+                   key={item.id}
+                   item={item}
+                   value={submissionData[item.id]}
+                   onChange={(val) => handleItemChange(item.id, val)}
+                   onCommentClick={(id) => setCommentTargetId(id)}
+                 />
+               ))}
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Footer Info */}
-      <div className="bg-slate-900 rounded-2xl p-6 text-white flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-yellow-600 rounded-xl flex items-center justify-center shadow-lg">
-            <ClipboardList size={24} />
-          </div>
-          <div>
-            <h4 className="text-sm font-black uppercase tracking-widest">Opening Protocol</h4>
-            <p className="text-[10px] text-slate-400">All checklists must be finalized 15 minutes prior to store opening.</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-           <StatusBadge status="CCMA COMPLIANT" />
-           <StatusBadge status="AUDITABLE" />
-        </div>
+      {/* 3. Global Information Footer */}
+      <div className="bg-slate-900 rounded-[2rem] p-8 text-white flex flex-col md:flex-row items-center justify-between gap-8 border border-slate-800">
+         <div className="flex items-center gap-6">
+            <div className="w-16 h-16 bg-yellow-600 rounded-3xl flex items-center justify-center text-white shadow-2xl border-4 border-slate-800 rotate-3 group-hover:rotate-0 transition-transform">
+               <ShieldAlert size={32} />
+            </div>
+            <div>
+               <h4 className="text-lg font-black uppercase tracking-tight">Legal Accountability notice</h4>
+               <p className="text-[10px] text-slate-400 font-medium max-w-md leading-relaxed mt-1 uppercase tracking-tighter">
+                  This checklist is a binding operational record. Misrepresentation of facts (pencil-whipping) is a dismissible offense under BCEA misconduct rules.
+               </p>
+            </div>
+         </div>
+         <div className="flex items-center gap-3">
+            <div className="text-right hidden md:block">
+               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Archive ID</p>
+               <p className="text-[9px] font-bold text-slate-400 font-mono">OP-{new Date().getTime().toString(16).toUpperCase()}</p>
+            </div>
+            <div className="w-px h-10 bg-slate-800 mx-2" />
+            <StatusBadge status="CCMA COMPLIANT" />
+         </div>
       </div>
+
+      {/* 4. Comment Modal */}
+      <CommentModal
+        isOpen={!!commentTargetId}
+        onClose={() => setCommentTargetId(null)}
+        title={items.find(i => i.id === commentTargetId)?.task_description}
+        initialValue={submissionData[commentTargetId]?.comment}
+        onSave={(text) => handleItemChange(commentTargetId, { ...submissionData[commentTargetId], comment: text })}
+      />
     </div>
   );
 }

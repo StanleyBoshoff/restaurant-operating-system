@@ -476,6 +476,8 @@ ALTER TABLE IF EXISTS company_payroll_settings DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS calendar_events DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS forms_submissions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS employee_schedules DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS employee_payroll_adjustments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS test_credentials DISABLE ROW LEVEL SECURITY;
 -- ==========================================
 -- 9. PERMISSIONS & AUTHORITY SYNC
 -- ==========================================

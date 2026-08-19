@@ -2,12 +2,10 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { EMPLOYEE_TABS } from './EmployeeTabRegistry';
 import { canDo } from '../../utils/permissionService';
+import { useAuth } from '../../context/AuthContext';
 
 export default function EmployeeTabNavigation({ baseUrl }) {
-    // Mock current user (Replace with Auth context later)
-    const currentUser = {
-        role_data: { authority_level: 10 } // Master Tech bypass
-    };
+    const { user: currentUser } = useAuth();
 
     const filteredTabs = EMPLOYEE_TABS.filter(tab => {
         if (!tab.permissionId) return true;

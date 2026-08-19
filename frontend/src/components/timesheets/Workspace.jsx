@@ -7,7 +7,8 @@ import { ATTENDANCE_TABS } from './tabs';
 
 // Tab Components
 import TabOverview from './TabOverview';
-import TabLiveClock from './TabLiveClock';
+import TabMonthlySummary from './TabMonthlySummary';
+import TabIndividualTimesheets from './TabIndividualTimesheets';
 import TabMonthlyRegister from './TabMonthlyRegister';
 import TabPayrollExport from './TabPayrollExport';
 
@@ -28,7 +29,8 @@ export default function Workspace() {
       <div className="min-h-[400px]">
         <Routes>
           <Route path="/" element={<TabOverview />} />
-          <Route path="live-clock" element={<TabLiveClock />} />
+          <Route path="individual" element={<TabIndividualTimesheets />} />
+          <Route path="monthly-summary" element={<TabMonthlySummary />} />
           <Route path="monthly-register" element={<TabMonthlyRegister />} />
           <Route path="payroll-export" element={<TabPayrollExport />} />
         </Routes>

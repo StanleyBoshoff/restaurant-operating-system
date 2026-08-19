@@ -44,6 +44,7 @@ const ABILITIES = [
     { id: 'can_view_timesheets', label: 'View Attendance Matrix', desc: 'Access to store-wide attendance logs.' },
     { id: 'can_edit_attendance_register', label: 'Edit Monthly Register', desc: 'Modify hours in the final payroll grid.' },
     { id: 'can_edit_terminal_records', label: 'Edit Terminal Clockings', desc: 'Override raw clock-in/out data.' },
+    { id: 'can_access_terminal', label: 'Unlock Clock-In Terminal', desc: 'Authorize device to switch into clocking mode.' },
     { id: 'can_export_payroll', label: 'Export Payroll Data', desc: 'Download CSV files for Sage/Pastel/Xero.' },
     { id: 'can_approve_timesheets', label: 'Approve Timesheets', desc: 'Verify and lock attendance for payroll processing.' },
   ]},
@@ -63,7 +64,10 @@ const ABILITIES = [
     { id: 'can_view_variance_report', label: 'View Shift Variance', desc: 'Scheduled vs Actual hour comparison.' },
   ]},
   { group: 'Ops & Communication', icon: MessageSquare, items: [
-    { id: 'can_manage_checklists', label: 'Manage Checklists', desc: 'Define store protocols and manager sign-offs.' },
+    { id: 'can_manage_checklists', label: 'Define Master Checklists', desc: 'Create and edit the standard operating procedures.' },
+    { id: 'can_perform_opening_checks', label: 'Execute Opening Checks', desc: 'Permission to start and sign off morning routines.' },
+    { id: 'can_perform_closing_checks', label: 'Execute Closing Checks', desc: 'Permission to start and sign off evening routines.' },
+    { id: 'receive_operational_alerts', label: 'Receive Accountability Alerts', desc: 'Get notified for late arrivals or missed checks.' },
     { id: 'can_submit_forms', label: 'Submit Store Forms', desc: 'Log cash-ups, incidents and temp logs.' },
     { id: 'can_manage_tasks', label: 'Manage Global Tasks', desc: 'Assign and track tasks across departments.' },
     { id: 'can_access_safety', label: 'Access Health & Safety', desc: 'Visibility of safety logs and audits.' },
@@ -124,6 +128,7 @@ export default function TabPermissions() {
           can_edit_medical: true, can_view_documents: true, can_upload_docs: true,
           can_delete_docs: true, can_download_docs: true, can_view_timesheets: true,
           can_edit_attendance_register: true, can_edit_terminal_records: true,
+          can_access_terminal: true,
           can_export_payroll: true, can_approve_timesheets: true, can_manage_disciplinary: true,
           can_launch_wizard: true, can_delete_warnings: true, can_view_leave_tracker: true,
           can_approve_leave: true, can_delete_leave: true, can_view_reports: true,
@@ -135,7 +140,7 @@ export default function TabPermissions() {
       { level: 9, permissions: {
           can_view_all_staff: true, can_edit_personnel: true, can_view_salary: true,
           can_view_bank_details: true, can_view_documents: true, can_upload_docs: true,
-          can_view_timesheets: true, can_export_payroll: true, can_manage_disciplinary: true,
+          can_view_timesheets: true, can_access_terminal: true, can_export_payroll: true, can_manage_disciplinary: true,
           can_view_leave_tracker: true, can_approve_leave: true, can_view_reports: true,
           can_view_financial_reports: true, can_access_safety: true, can_access_communication: true
       } },

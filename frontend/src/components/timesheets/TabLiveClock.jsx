@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SummaryCard from '../common/SummaryCard';
-import { Timer, User, Clock as ClockIcon, Coffee, LogOut, CheckCircle, Search } from 'lucide-react';
+import { Timer, User, Clock as ClockIcon, Coffee, LogOut, CheckCircle, Search, Lock } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { clockIn, clockOut, toggleBreak, getActiveTimesheet, getEmployeeTimesheetStats } from '../../utils/timesheetService';
 import StatusBadge from '../common/StatusBadge';
@@ -77,8 +77,8 @@ export default function TabLiveClock() {
     if (!selectedEmployee) return;
     setLoading(true);
     try {
-      const shift = await clockIn(selectedEmployee.id, selectedEmployee.branch || 'Main Branch');
-      setActiveShift(shift);
+      const result = await clockIn(selectedEmployee.id, selectedEmployee.branch || 'Main Branch');
+      setActiveShift(result);
       loadEmployeeStats(selectedEmployee.id);
     } catch (err) {
       alert("Clock-in failed: " + err.message);
@@ -91,10 +91,10 @@ export default function TabLiveClock() {
     if (!activeShift) return;
     setLoading(true);
     try {
-      await clockOut(activeShift.id);
+      const result = await clockOut(activeShift.id);
       setActiveShift(null);
       loadEmployeeStats(selectedEmployee.id);
-      alert("Shift completed successfully.");
+      alert(result.action_meta);
     } catch (err) {
       alert("Clock-out failed: " + err.message);
     } finally {
@@ -107,8 +107,8 @@ export default function TabLiveClock() {
     const isStarting = activeShift.status === 'Active';
     setLoading(true);
     try {
-      const updated = await toggleBreak(activeShift.id, isStarting);
-      setActiveShift(updated);
+      const result = await toggleBreak(activeShift.id, isStarting);
+      setActiveShift(result);
     } catch (err) {
       alert("Break update failed: " + err.message);
     } finally {

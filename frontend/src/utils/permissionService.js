@@ -24,8 +24,8 @@ export const canAccessModule = (user, moduleName) => {
   if (!user || !user.role_data) return false;
   const { authority_level, permissions } = user.role_data;
 
-  // ONLY Level 11 (System Admin) has a hard-coded bypass.
-  if (authority_level >= 11) return true;
+  // 🛡️ MASTER BYPASS: Owner (10) and System Admin (11) see everything.
+  if (authority_level >= 10) return true;
 
   // SPECIAL RULE: Employees module access depends on specific level visibility
   if (moduleName.toLowerCase() === 'employees') {
@@ -61,7 +61,7 @@ export const canAccessModule = (user, moduleName) => {
  */
 export const canDo = (user, permissionKey) => {
   if (!user || !user.role_data) return false;
-  if (user.role_data.authority_level >= 11) return true;
+  if (user.role_data.authority_level >= 10) return true;
   return user.role_data.permissions?.[permissionKey] || false;
 };
 

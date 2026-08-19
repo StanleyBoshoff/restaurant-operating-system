@@ -7,6 +7,11 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authMode, setAuthMode] = useState(() => localStorage.getItem('rems_auth_mode') || 'login');
+
+  useEffect(() => {
+    localStorage.setItem('rems_auth_mode', authMode);
+  }, [authMode]);
 
   useEffect(() => {
     // 1. Check active Supabase session
@@ -119,7 +124,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, session, loading, login, logout, authMode, setAuthMode }}>
       {children}
     </AuthContext.Provider>
   );

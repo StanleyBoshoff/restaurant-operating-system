@@ -13,6 +13,7 @@ import TabBar from './TabBar';
 import TabCleaning from './TabCleaning';
 import TabCustom from './TabCustom';
 import TabReports from './TabReports';
+import ChecklistRunner from './ChecklistRunner';
 
 export default function Workspace() {
   return (
@@ -34,6 +35,7 @@ export default function Workspace() {
           <Route path="bar" element={<TabBar />} />
           <Route path="cleaning" element={<TabCleaning />} />
           <Route path="custom" element={<TabCustom />} />
+          <Route path="run/:checklistId" element={<ChecklistRunner />} />
           <Route path="reports" element={<TabReports />} />
         </Routes>
       </div>

@@ -1,198 +1,407 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import SummaryCard from '../common/SummaryCard';
-import { Calendar, ChevronLeft, ChevronRight, Download, Filter, Search, MoreVertical, FileText, Timer, Users, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { getMonthlyAttendanceSummary } from '../../utils/reportingService';
-import StatusBadge from '../common/StatusBadge';
+import { Timer, Users, Activity, Clock, Coffee, RefreshCw, CheckCircle, PieChart, Briefcase, TrendingUp, Search, Download, Wifi, WifiOff, LogOut, Power } from 'lucide-react';
+import { calculateDuration, calculateDurationWithSettings, clockOut } from '../../utils/timesheetService';
+import { supabase } from '../../supabaseClient';
+import { useAuth } from '../../context/AuthContext';
 
 export default function TabOverview() {
-  const [summary, setSummary] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const { user: currentUser } = useAuth();
+  const [dailyAttendance, setDailyAttendance] = useState([]);
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [debugCount, setDebugCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [now, setNow] = useState(new Date());
+  const [lastSync, setLastSync] = useState(new Date());
+  const [rtStatus, setRtStatus] = useState('CONNECTING'); // CONNECTING, SUBSCRIBED, ERROR
+
+  const [payrollSettings, setPayrollSettings] = useState(null);
+
+  const isAdmin = currentUser?.role_data?.authority_level >= 10;
 
   useEffect(() => {
-    fetchMonthlyData();
-  }, [currentMonth, currentYear]);
+    const fetchSettings = async () => {
+      const { data } = await supabase.from('company_payroll_settings').select('*').single();
+      setPayrollSettings(data);
+    };
+    fetchSettings();
+  }, []);
 
-  const fetchMonthlyData = async () => {
-    setLoading(true);
+  // Update 'now' every minute to keep live hours accurate
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 1. Fetch Today's Full Attendance List
+  const fetchDailyAttendance = useCallback(async () => {
+    setLiveLoading(true);
     try {
-      const data = await getMonthlyAttendanceSummary(currentMonth, currentYear);
-      setSummary(data || []);
+      const localToday = new Date().toLocaleDateString('sv-SE');
+
+      const { data: shifts, error: sErr } = await supabase
+        .from('employee_timesheets')
+        .select('*')
+        .or(`status.neq.Completed,shift_date.eq.${localToday},clock_out.gte.${localToday}T00:00:00Z`);
+
+      if (sErr) throw sErr;
+
+      if (!shifts || shifts.length === 0) {
+        setDailyAttendance([]);
+        setDebugCount(0);
+        return;
+      }
+
+      const empIds = [...new Set(shifts.map(s => s.employee_id))];
+      const { data: emps, error: eErr } = await supabase
+        .from('employees')
+        .select('id, first_name, last_name, role, department')
+        .in('id', empIds);
+
+      if (eErr) throw eErr;
+
+      const formatted = shifts.map(s => {
+        const emp = emps?.find(e => e.id === s.employee_id);
+        return {
+          ...s,
+          emp_name: emp ? `${emp.first_name} ${emp.last_name}` : 'Unknown Staff',
+          emp_role: emp?.role || 'Staff',
+          emp_dept: emp?.department || 'Unassigned',
+          emp_initials: emp ? `${emp.first_name[0]}${emp.last_name[0]}` : '??'
+        };
+      });
+
+      const statusWeight = { 'Active': 0, 'On Break': 1, 'Completed': 2 };
+      formatted.sort((a, b) => {
+        if (statusWeight[a.status] !== statusWeight[b.status]) {
+          return statusWeight[a.status] - statusWeight[b.status];
+        }
+        return new Date(b.clock_in) - new Date(a.clock_in);
+      });
+
+      setDailyAttendance(formatted);
+      setDebugCount(formatted.length);
+      setLastSync(new Date());
     } catch (err) {
-      console.error("Failed to fetch monthly attendance summary:", err);
+      console.error("Daily attendance fetch error:", err.message);
     } finally {
-      setLoading(false);
+      setLiveLoading(false);
+    }
+  }, []);
+
+  // 2. Hardened Real-time Subscription
+  useEffect(() => {
+    fetchDailyAttendance();
+
+    const channel = supabase
+      .channel('attendance-master-monitor-v2')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'employee_timesheets' },
+        (payload) => {
+          console.log("⚡ [LIVE] Change Detected:", payload.eventType);
+          fetchDailyAttendance();
+        }
+      )
+      .subscribe((status) => {
+        console.log("🔗 Real-time Status:", status);
+        setRtStatus(status);
+        if (status === 'TIMED_OUT' || status === 'CLOSED') {
+           setTimeout(() => fetchDailyAttendance(), 2000);
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchDailyAttendance]);
+
+  const handleManualClockOut = async (shift) => {
+    if (!window.confirm(`Are you sure you want to clock out ${shift.emp_name} manually?`)) return;
+
+    try {
+      setLiveLoading(true);
+      await clockOut(shift.id);
+      await fetchDailyAttendance();
+    } catch (err) {
+      alert("Manual clock out failed: " + err.message);
+    } finally {
+      setLiveLoading(false);
     }
   };
 
-  const changeMonth = (direction) => {
-    let nextMonth = currentMonth + direction;
-    let nextYear = currentYear;
-    if (nextMonth > 12) { nextMonth = 1; nextYear++; }
-    if (nextMonth < 1) { nextMonth = 12; nextYear--; }
-    setCurrentMonth(nextMonth);
-    setCurrentYear(nextYear);
+  const handleClockOutAll = async () => {
+    const activeOnes = dailyAttendance.filter(s => s.status !== 'Completed');
+    if (activeOnes.length === 0) {
+      alert("No active shifts to clock out.");
+      return;
+    }
+
+    if (!window.confirm(`Force clock out all ${activeOnes.length} currently active staff members?`)) return;
+
+    try {
+      setLiveLoading(true);
+      // Perform sequential clock outs to ensure all are processed
+      for (const shift of activeOnes) {
+        await clockOut(shift.id);
+      }
+      await fetchDailyAttendance();
+      alert("All active staff have been clocked out.");
+    } catch (err) {
+      alert("Batch clock out failed: " + err.message);
+    } finally {
+      setLiveLoading(false);
+    }
   };
 
-  const getMonthLabel = () => {
-    return new Date(currentYear, currentMonth - 1).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
-  };
-
-  const filteredData = summary.filter(emp =>
-    `${emp.first_name} ${emp.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredData = dailyAttendance.filter(shift =>
+    shift.emp_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    shift.emp_dept.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totalPayrollHours = filteredData.reduce((acc, emp) => acc + (parseFloat(emp.totalHours) || 0), 0);
-  const totalOvertime = filteredData.reduce((acc, emp) => acc + (parseFloat(emp.totalOvertime) || 0), 0);
-  const totalAutoExits = filteredData.reduce((acc, emp) => acc + (emp.autoExits || 0), 0);
+  const liveStats = useMemo(() => {
+    const stats = { totalHours: 0, activeCount: 0, onBreakCount: 0, completedCount: 0, byDept: {} };
+    dailyAttendance.forEach(s => {
+      const breakToDeduct = (s.break_start && s.break_end) ? (new Date(s.break_end) - new Date(s.break_start)) / 60000 : 0;
+      const dur = parseFloat(calculateDurationWithSettings(s.clock_in, s.clock_out || now.toISOString(), payrollSettings, s.break_start, s.break_end));
+      stats.totalHours += dur;
+      if (s.status === 'Active') stats.activeCount++;
+      else if (s.status === 'On Break') stats.onBreakCount++;
+      else if (s.status === 'Completed') stats.completedCount++;
+      const dept = s.emp_dept || 'Other';
+      if (!stats.byDept[dept]) stats.byDept[dept] = 0;
+      stats.byDept[dept] += dur;
+    });
+    return stats;
+  }, [dailyAttendance, now, payrollSettings]);
+
+  const formatMins = (minutes) => {
+    if (!minutes || minutes < 0) return '0m';
+    const h = Math.floor(minutes / 60);
+    const m = Math.floor(minutes % 60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
 
-      {/* Month Navigation Controls */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => changeMonth(-1)}
-            className="p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-3xs active:scale-95"
-          >
-            <ChevronLeft size={16} className="text-slate-600" />
-          </button>
-
-          <div className="px-4 py-2 bg-white border border-slate-200 rounded-xl flex items-center gap-3 shadow-3xs min-w-[200px] justify-center">
-            <Calendar size={14} className="text-yellow-600" />
-            <span className="text-xs font-black text-slate-900 uppercase tracking-widest">{getMonthLabel()}</span>
-          </div>
-
-          <button
-            onClick={() => changeMonth(1)}
-            className="p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-3xs active:scale-95"
-          >
-            <ChevronRight size={16} className="text-slate-600" />
-          </button>
+      {/* 🟢 LIVE SNAPSHOT SUMMARY */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="lg:col-span-1 bg-slate-900 rounded-[1.5rem] p-6 text-white shadow-xl flex flex-col justify-between min-h-[160px]">
+           <div className="flex items-center justify-between">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Total Shift Hours</p>
+              <div className="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center text-emerald-500 border border-emerald-500/30">
+                 <Activity size={16} className="animate-pulse" />
+              </div>
+           </div>
+           <div>
+              <h2 className="text-5xl font-black tracking-tighter">{liveStats.totalHours.toFixed(1)}</h2>
+              <div className="flex items-center gap-2 mt-2">
+                 <div className="flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-tighter">{liveStats.activeCount} ON FLOOR</span>
+                 </div>
+                 <div className="flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                    <span className="w-1 h-1 rounded-full bg-amber-500" />
+                    <span className="text-[9px] font-black text-amber-400 uppercase tracking-tighter">{liveStats.onBreakCount} BREAK</span>
+                 </div>
+              </div>
+           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-            <input
-              type="text"
-              placeholder="Search employee..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-yellow-500/20 shadow-3xs"
-            />
-          </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm active:scale-95">
-            <Download size={14} />
-            Monthly Export
-          </button>
+        <div className="lg:col-span-3 bg-white border border-slate-200 rounded-[1.5rem] p-6 shadow-sm flex flex-col justify-between min-h-[160px]">
+           <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                 <Briefcase size={14} className="text-slate-400" />
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Departmental Performance (Daily Live)</p>
+              </div>
+              <div className="flex items-center gap-2">
+                 {rtStatus === 'SUBSCRIBED' ? (
+                   <span className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black rounded-lg border border-emerald-100 uppercase animate-in fade-in">
+                      <Wifi size={10} /> Real-time Link: Connected
+                   </span>
+                 ) : (
+                   <span className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-50 text-slate-400 text-[8px] font-black rounded-lg border border-slate-100 uppercase italic">
+                      <WifiOff size={10} /> Real-time Link: {rtStatus}...
+                   </span>
+                 )}
+              </div>
+           </div>
+           <div className="flex flex-wrap gap-x-12 gap-y-6">
+              {Object.entries(liveStats.byDept).map(([dept, hours]) => (
+                <div key={dept} className="flex flex-col">
+                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">{dept}</span>
+                   <span className="text-2xl font-black text-slate-900 leading-none">
+                      {hours.toFixed(1)}<span className="text-[10px] ml-1 text-slate-400 font-bold uppercase">hrs</span>
+                   </span>
+                </div>
+              ))}
+              {Object.keys(liveStats.byDept).length === 0 && (
+                <div className="flex items-center gap-2 opacity-30 italic py-2">
+                   <Users size={16} />
+                   <p className="text-xs font-bold uppercase tracking-widest">Awaiting workforce clock-in data...</p>
+                </div>
+              )}
+           </div>
         </div>
       </div>
 
-      <SummaryCard
-        title="Monthly Attendance Summary"
-        icon={Users}
-        badge={<span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{filteredData.length} EMPLOYEES</span>}
-      >
-        <div className="overflow-x-auto -mx-4 -mb-4">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-200">
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Employee</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Job Role</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Regular Hrs</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Overtime</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Total Shifts</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Auto-Exits</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Approval Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-[12px]">
-              {loading ? (
-                <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center italic text-slate-400 animate-pulse">
-                    Aggregating monthly workforce summary...
-                  </td>
-                </tr>
-              ) : filteredData.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center italic text-slate-400">
-                    No records found for this month.
-                  </td>
-                </tr>
-              ) : (
-                filteredData.map(emp => (
-                  <tr key={emp.id} className="hover:bg-slate-50/50 transition-all group">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-[10px] text-slate-500 border border-slate-200 group-hover:bg-white group-hover:border-slate-300">
-                          {emp.first_name[0]}{emp.last_name[0]}
-                        </div>
-                        <span className="font-bold text-slate-900">{emp.first_name} {emp.last_name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-slate-500 font-medium">{emp.role}</td>
-                    <td className="px-6 py-4 text-center font-black text-slate-700">{emp.totalHours}h</td>
-                    <td className="px-6 py-4 text-center font-black text-rose-600">{emp.totalOvertime}h</td>
-                    <td className="px-6 py-4 text-center font-bold text-slate-400">{emp.totalShifts}</td>
-                    <td className="px-6 py-4 text-center">
-                      {emp.autoExits > 0 ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 text-[10px] font-black border border-rose-100">
-                          <AlertCircle size={10} />
-                          {emp.autoExits}
-                        </span>
-                      ) : (
-                        <span className="text-slate-300">0</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex flex-col items-end gap-1">
-                        <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full transition-all ${emp.approvalRate === 100 ? 'bg-emerald-500' : 'bg-yellow-500'}`}
-                            style={{ width: `${emp.approvalRate}%` }}
-                          />
-                        </div>
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{emp.approvalRate}% Verified</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      {/* 🔍 SEARCH & LOG HEADER */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-2">
+        <div className="relative flex-1 max-w-md w-full">
+           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+           <input
+             type="text"
+             placeholder="Search staff, role or department..."
+             value={searchTerm}
+             onChange={(e) => setSearchTerm(e.target.value)}
+             className="w-full pl-11 pr-4 py-3.5 bg-white border-2 border-slate-100 rounded-2xl text-xs font-bold focus:border-yellow-500/50 outline-none transition-all shadow-3xs"
+           />
         </div>
+        <div className="flex items-center gap-3">
+           {isAdmin && (
+             <button onClick={handleClockOutAll} className="bg-rose-600 px-4 py-3 rounded-2xl border border-rose-700 flex items-center gap-2 text-[10px] font-black text-white uppercase tracking-widest hover:bg-rose-700 transition-all active:scale-95 shadow-lg">
+                <Power size={14} />
+                Clock Out All
+             </button>
+           )}
+           <button onClick={fetchDailyAttendance} className="bg-slate-900 px-4 py-3 rounded-2xl border border-slate-800 flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-white transition-all active:scale-95 shadow-md">
+              <RefreshCw size={12} className={liveLoading ? "animate-spin" : ""} />
+              Force Refresh
+           </button>
+           <button className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.1em] hover:bg-slate-200 transition-all active:scale-95 border border-slate-200">
+              <Download size={14} />
+              Export Log
+           </button>
+        </div>
+      </div>
+
+      {/* 🔵 DAILY ATTENDANCE LOG */}
+      <SummaryCard
+        title={
+          <div className="flex items-center gap-3">
+             <Clock className="text-yellow-600" size={18} />
+             <span className="font-black text-slate-900 tracking-tight">Daily Performance Log</span>
+             <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-slate-900 rounded-lg text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] border border-slate-800">
+                <Activity size={10} className={dailyAttendance.some(s => s.status !== 'Completed') ? "text-emerald-500 animate-pulse" : ""} />
+                Live Sync: {debugCount}
+             </div>
+          </div>
+        }
+      >
+        {dailyAttendance.length === 0 ? (
+          <div className="py-24 text-center border-2 border-dashed border-slate-100 rounded-[2rem] bg-slate-50/20">
+            <Timer size={48} className="mx-auto mb-4 text-slate-200" />
+            <p className="text-base text-slate-400 font-black uppercase tracking-widest">No shift records for today</p>
+            <p className="text-[10px] text-slate-300 uppercase mt-2 font-bold tracking-[0.3em]">System heart monitoring active</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto -mx-6 -mb-6 no-scrollbar">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/80 border-y border-slate-100 backdrop-blur-sm">
+                  <th className="pl-8 py-5 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Personnel</th>
+                  <th className="px-4 py-5 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] text-center">Status</th>
+                  <th className="px-4 py-5 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] text-center">Session Period</th>
+                  <th className="px-4 py-5 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] text-center">Break</th>
+                  <th className="px-4 py-5 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] text-right">Net Hours</th>
+                  <th className="pr-8 py-5 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredData.map(shift => {
+                  const isLive = shift.status !== 'Completed';
+                  let breakDisplay = '--';
+                  let breakColor = 'text-slate-300';
+                  if (shift.status === 'On Break' && shift.break_start) {
+                    const breakMins = (now - new Date(shift.break_start)) / 60000;
+                    breakDisplay = `Active: ${formatMins(breakMins)}`;
+                    breakColor = 'text-amber-600 font-black animate-pulse';
+                  } else if (shift.break_start && shift.break_end) {
+                    const totalBreakMins = (new Date(shift.break_end) - new Date(shift.break_start)) / 60000;
+                    breakDisplay = `Took ${formatMins(totalBreakMins)}`;
+                    breakColor = 'text-slate-500 font-bold';
+                  }
+                  const duration = calculateDurationWithSettings(shift.clock_in, shift.clock_out || now.toISOString(), payrollSettings, shift.break_start, shift.break_end);
+                  return (
+                    <tr key={shift.id} className={`hover:bg-slate-50/50 transition-colors group ${shift.status === 'Completed' ? 'bg-slate-50/20' : ''}`}>
+                      <td className="pl-8 py-6">
+                        <div className="flex items-center gap-5">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-[12px] ${
+                            shift.status === 'On Break' ? 'bg-amber-100 text-amber-600 border border-amber-200' :
+                            shift.status === 'Completed' ? 'bg-white text-slate-400 border border-slate-100' :
+                            'bg-slate-900 text-emerald-400 shadow-xl shadow-slate-900/10 border border-slate-800'
+                          } uppercase transition-transform group-hover:scale-110`}>
+                            {shift.emp_initials}
+                          </div>
+                          <div>
+                            <p className={`text-xs font-black leading-tight uppercase tracking-tight ${shift.status === 'Completed' ? 'text-slate-400' : 'text-slate-900'}`}>{shift.emp_name}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{shift.emp_role}</span>
+                              <span className="w-1 h-1 rounded-full bg-slate-200" />
+                              <span className="text-[8px] font-black text-slate-400 uppercase bg-slate-100 px-1.5 py-0.5 rounded-full">{shift.emp_dept}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-6 text-center">
+                        <div className="flex justify-center">
+                           {shift.status === 'Active' && <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black border border-emerald-100 shadow-3xs"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />ON DUTY</span>}
+                           {shift.status === 'On Break' && <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 text-amber-600 text-[10px] font-black border border-amber-100 shadow-3xs"><Coffee size={12} />BREAKING</span>}
+                           {shift.status === 'Completed' && <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-white text-slate-400 text-[10px] font-black border border-slate-100 shadow-3xs"><CheckCircle size={12} />FINISHED</span>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-6 text-center">
+                         <div className="flex flex-col items-center gap-1">
+                            <div className="flex items-center justify-center gap-1.5 text-[10px] font-black text-slate-700 uppercase">
+                               <span className="bg-white px-2.5 py-1 rounded-lg border border-slate-100 shadow-3xs">{new Date(shift.clock_in).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}</span>
+                               <span className="text-slate-300 font-normal">→</span>
+                               <span className="bg-white px-2.5 py-1 rounded-lg border border-slate-100 shadow-3xs">{shift.clock_out ? new Date(shift.clock_out).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : 'NOW'}</span>
+                            </div>
+                         </div>
+                      </td>
+                      <td className="px-4 py-6 text-center">
+                         <div className={`text-[10px] flex items-center justify-center gap-2 ${breakColor}`}>
+                            {shift.status === 'On Break' && <RefreshCw size={12} className="animate-spin" />}
+                            {breakDisplay}
+                         </div>
+                      </td>
+                      <td className="px-4 py-6 text-right">
+                        <div className="flex flex-col items-end">
+                          <span className={`text-lg font-black tracking-tighter ${isLive ? 'text-emerald-600' : 'text-slate-400'}`}>
+                            {duration} <span className="text-[10px] font-bold text-slate-300 uppercase ml-0.5">hrs</span>
+                          </span>
+                          {isLive && <span className="text-[8px] font-black text-emerald-500/70 uppercase tracking-widest animate-pulse">Running Feed</span>}
+                        </div>
+                      </td>
+                      <td className="pr-8 py-6 text-right">
+                         {isLive && isAdmin && (
+                           <button
+                             onClick={() => handleManualClockOut(shift)}
+                             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all active:scale-90 border border-transparent hover:border-rose-100"
+                             title="Force Clock Out"
+                           >
+                             <LogOut size={16} />
+                           </button>
+                         )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </SummaryCard>
 
-      {/* Summary Footer */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-slate-900 rounded-2xl p-5 text-white flex flex-col justify-between h-32 shadow-lg">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Store Monthly Hours</p>
-          <div className="flex items-end justify-between">
-            <h2 className="text-3xl font-black">{totalPayrollHours.toFixed(1)}</h2>
-            <div className="w-8 h-8 bg-yellow-600 rounded-lg flex items-center justify-center">
-              <FileText size={16} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between h-32 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Total Overtime</p>
-          <h2 className="text-3xl font-black text-rose-600">{totalOvertime.toFixed(1)}</h2>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between h-32 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Compliance Flags</p>
-          <h2 className="text-3xl font-black text-amber-600">{totalAutoExits.toString().padStart(2, '0')}</h2>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between h-32 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Completion Score</p>
-          <h2 className="text-3xl font-black text-emerald-600">88%</h2>
-        </div>
+      <div className="flex items-center justify-between px-2 opacity-50">
+         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+            Last Table Refresh: {lastSync.toLocaleTimeString('en-ZA')}
+         </p>
+         <div className="flex items-center gap-4">
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Replica Identity: FULL</span>
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Encryption: AES-256</span>
+         </div>
       </div>
     </div>
   );

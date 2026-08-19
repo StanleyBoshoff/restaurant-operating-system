@@ -1,125 +1,169 @@
 import React, { useState, useEffect } from 'react';
 import SummaryCard from '../common/SummaryCard';
-import { ClipboardList, CheckCircle2, Circle, AlertCircle, Save, UserCheck, Trash2, Lock, ShieldCheck } from 'lucide-react';
+import { ClipboardList, CheckCircle2, AlertCircle, Save, UserCheck, Trash2, Timer, ShieldAlert, CheckCircle } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
-
-const CLOSING_DUTIES = [
-  { id: 'close-1', category: 'General', task: 'All guests have safely vacated premises', mandatory: true },
-  { id: 'close-2', category: 'General', task: 'Music and non-essential lighting switched off', mandatory: true },
-  { id: 'close-3', category: 'Financial', task: 'Final Cash-Up completed and signed off', mandatory: true },
-  { id: 'close-4', category: 'Kitchen', task: 'All gas valves closed and appliances off', mandatory: true },
-  { id: 'close-5', category: 'Kitchen', task: 'Fridge/Freezer temperatures recorded', mandatory: true },
-  { id: 'close-6', category: 'Kitchen', task: 'Waste disposal completed and area cleaned', mandatory: false },
-  { id: 'close-7', category: 'Bar', task: 'Inventory secured and taps locked', mandatory: true },
-  { id: 'close-8', category: 'Security', task: 'Alarm system armed and all doors double-locked', mandatory: true },
-];
+import { getChecklistItems, submitChecklist, getAssignedStaffForChecklist } from '../../utils/checklistService';
+import ChecklistItemMobile from './ChecklistItemMobile';
+import CommentModal from './CommentModal';
+import { useAuth } from '../../context/AuthContext';
 
 export default function TabClosing() {
+  const { user: currentUser } = useAuth();
   const [items, setItems] = useState([]);
-  const [completedIds, setCompletedIds] = useState(new Set());
-  const [signingManager, setSigningManager] = useState('');
+  const [submissionData, setSubmissionData] = useState({});
+  const [assignedStaff, setAssignedStaff] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [startedAt] = useState(new Date().toISOString());
+  const [commentTargetId, setCommentTargetId] = useState(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('ros_closing_checklist');
+    fetchItems();
+    fetchAssignment();
+
+    const saved = localStorage.getItem('ros_closing_checklist_v2_draft');
     if (saved) {
-      const { completed, manager } = JSON.parse(saved);
-      setCompletedIds(new Set(completed));
-      setSigningManager(manager);
+      setSubmissionData(JSON.parse(saved));
     }
-    setItems(CLOSING_DUTIES);
   }, []);
 
-  const toggleTask = (id) => {
-    const newSet = new Set(completedIds);
-    if (newSet.has(id)) newSet.delete(id);
-    else newSet.add(id);
-    setCompletedIds(newSet);
+  const fetchItems = async () => {
+    setLoading(true);
+    try {
+      const data = await getChecklistItems('Closing Routine');
+      setItems(data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAssignment = async () => {
+     const staff = await getAssignedStaffForChecklist('can_perform_closing_checks');
+     setAssignedStaff(staff);
+  };
+
+  const handleItemChange = (itemId, value) => {
+    const newData = { ...submissionData, [itemId]: value };
+    setSubmissionData(newData);
     setIsSaved(false);
+    localStorage.setItem('ros_closing_checklist_v2_draft', JSON.stringify(newData));
   };
 
-  const handleSave = () => {
-    const data = { completed: Array.from(completedIds), manager: signingManager, timestamp: new Date().toISOString() };
-    localStorage.setItem('ros_closing_checklist', JSON.stringify(data));
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+  const handleSave = async () => {
+    if (!currentUser) return alert("You must be logged in to sign off.");
+
+    for (const item of items) {
+       const val = submissionData[item.id];
+       if (item.is_mandatory && !val?.status) return alert(`Mandatory Missing: ${item.task_description}`);
+       if (val?.status === 'cross' && !val?.comment) return alert(`Comment Required for issues.`);
+    }
+
+    try {
+      await submitChecklist('Closing Routine', submissionData, currentUser.id, `${currentUser.first_name} ${currentUser.last_name}`, startedAt);
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+      localStorage.removeItem('ros_closing_checklist_v2_draft');
+      setSubmissionData({});
+      alert("Closing Routine finalized and archived.");
+    } catch (err) {
+      alert("Submission failed: " + err.message);
+    }
   };
 
-  const progress = Math.round((completedIds.size / items.length) * 100);
+  const progress = items.length > 0
+    ? Math.round((Object.keys(submissionData).filter(id => submissionData[id]?.status).length / items.length) * 100)
+    : 0;
+
+  const categories = [...new Set(items.map(i => i.category || 'General'))];
+
+  if (loading) return <div className="py-20 text-center italic text-slate-400 animate-pulse">Syncing closing protocols...</div>;
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <SummaryCard title="Closing Compliance" icon={Lock}>
-          <div className="flex items-end gap-3">
-            <h2 className="text-4xl font-black text-rose-600">{progress}%</h2>
-            <div className="flex-1 h-2 bg-slate-100 rounded-full mb-2 overflow-hidden">
-              <div className="h-full bg-rose-600 transition-all duration-700" style={{ width: `${progress}%` }}></div>
+        <SummaryCard title="Closing Accountability" icon={UserCheck}>
+           <div className="flex items-center gap-4 py-1">
+              <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center font-black text-rose-400 shadow-xl border border-slate-800">
+                 {assignedStaff ? `${assignedStaff.first_name[0]}${assignedStaff.last_name[0]}` : '??'}
+              </div>
+              <div>
+                 <p className="text-xs font-black text-slate-900 uppercase tracking-tight">
+                    {assignedStaff ? `${assignedStaff.first_name} ${assignedStaff.last_name}` : 'Awaiting Staff...'}
+                 </p>
+                 <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Assignee</span>
+                    <span className="w-1 h-1 rounded-full bg-slate-300" />
+                    <span className="text-[8px] font-black text-rose-600 uppercase">Lockdown Authorized</span>
+                 </div>
+              </div>
+           </div>
+        </SummaryCard>
+
+        <SummaryCard title="Lockdown Progress" icon={Timer}>
+           <div className="flex items-end justify-between gap-4">
+              <h2 className="text-5xl font-black text-slate-900 tracking-tighter leading-none">{progress}%</h2>
+              <div className="flex-1 pb-1">
+                 <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-100 shadow-inner">
+                    <div className="h-full bg-rose-500 transition-all duration-1000 shadow-lg" style={{ width: `${progress}%` }} />
+                 </div>
+              </div>
+           </div>
+           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-3">
+              {Object.keys(submissionData).filter(id => submissionData[id]?.status).length} of {items.length} Lockdown Points
+           </p>
+        </SummaryCard>
+
+        <SummaryCard title="Routine Execution" icon={Save}>
+           <div className="space-y-2">
+              <button
+                onClick={handleSave}
+                disabled={progress < 10}
+                className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${
+                    progress === 100
+                    ? 'bg-rose-600 text-white hover:bg-rose-700'
+                    : 'bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-30'
+                }`}
+              >
+                 <CheckCircle size={18} />
+                 <span className="text-[10px] font-black uppercase tracking-widest">Finalize Lockdown</span>
+              </button>
+           </div>
+        </SummaryCard>
+      </div>
+
+      <div className="space-y-8">
+        {categories.map(cat => (
+          <div key={cat} className="space-y-4">
+            <div className="flex items-center gap-4 px-2">
+               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{cat}</h4>
+               <div className="flex-1 h-px bg-slate-100" />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+               {items.filter(i => i.category === cat).map(item => (
+                 <ChecklistItemMobile
+                   key={item.id}
+                   item={item}
+                   value={submissionData[item.id]}
+                   onChange={(val) => handleItemChange(item.id, val)}
+                   onCommentClick={(id) => setCommentTargetId(id)}
+                 />
+               ))}
             </div>
           </div>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Shutdown in progress</p>
-        </SummaryCard>
-
-        <SummaryCard title="Security Status" icon={ShieldCheck}>
-           <div className="flex items-center gap-3 py-2">
-            {progress === 100 ? (
-              <div className="flex items-center gap-2 text-green-600 font-black text-sm uppercase tracking-tight">
-                <ShieldCheck size={20} />
-                Building Secure
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-amber-600 font-black text-sm uppercase tracking-tight">
-                <AlertCircle size={20} />
-                Hazards Present
-              </div>
-            )}
-          </div>
-        </SummaryCard>
-
-        <SummaryCard title="Final Sign-off" icon={UserCheck}>
-          <input
-            type="text"
-            placeholder="Manager Name..."
-            value={signingManager}
-            onChange={(e) => setSigningManager(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none"
-          />
-          <button
-            onClick={handleSave}
-            className={`w-full mt-2 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${isSaved ? 'bg-green-600 text-white' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
-          >
-            Commit Shutdown
-          </button>
-        </SummaryCard>
+        ))}
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-        <div className="bg-slate-50 border-b border-slate-200 px-6 py-3 flex items-center gap-2">
-           <ClipboardList size={14} className="text-slate-400" />
-           <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Master Shutdown Protocol</h3>
-        </div>
-        <div className="divide-y divide-slate-100">
-          {items.map(task => (
-            <button
-              key={task.id}
-              onClick={() => toggleTask(task.id)}
-              className="w-full flex items-start gap-4 p-4 hover:bg-slate-50 transition-all text-left group"
-            >
-              <div className="mt-0.5">
-                {completedIds.has(task.id) ? <CheckCircle2 size={18} className="text-rose-600" /> : <Circle size={18} className="text-slate-200" />}
-              </div>
-              <div className="flex-1">
-                <p className={`text-xs font-bold ${completedIds.has(task.id) ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{task.task}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[8px] font-black bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase">{task.category}</span>
-                  {task.mandatory && <span className="text-[8px] font-black text-rose-500 uppercase tracking-tighter">Legal Requirement</span>}
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
+      <CommentModal
+        isOpen={!!commentTargetId}
+        onClose={() => setCommentTargetId(null)}
+        title={items.find(i => i.id === commentTargetId)?.task_description}
+        initialValue={submissionData[commentTargetId]?.comment}
+        onSave={(text) => handleItemChange(commentTargetId, { ...submissionData[commentTargetId], comment: text })}
+      />
     </div>
   );
 }

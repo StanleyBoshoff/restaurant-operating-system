@@ -22,7 +22,8 @@ import ReportsWorkspace from './components/reports/Workspace';
 import SettingsWorkspace from './components/settings/Workspace';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { canAccessModule } from './utils/permissionService';
+import { clockIn, clockOut, toggleBreak, getActiveTimesheet, performGhostClockOutCheck } from './utils/timesheetService';
+import { canAccessModule, canDo } from './utils/permissionService';
 
 import {
   Users, FileText, Globe, ShieldAlert, BarChart3, Settings,
@@ -31,11 +32,23 @@ import {
 } from 'lucide-react';
 
 function AppContent() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, authMode } = useAuth();
   const [companyName] = useState("Restaurise");
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Auto-Cleanup: Periodically check for "Ghost" shifts (Active shifts past cutoff)
+  useEffect(() => {
+    if (!user || !canDo(user, 'can_access_settings')) return;
+
+    // Run once on load
+    performGhostClockOutCheck();
+
+    // Then every 30 minutes
+    const interval = setInterval(performGhostClockOutCheck, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Update sidebar state if window is resized to desktop/mobile breakpoints
   useEffect(() => {
@@ -62,12 +75,14 @@ function AppContent() {
     );
   }
 
-  if (!user) {
+  // 🛡️ STRICT Terminal Mode Guard: Prioritize localStorage to prevent auth race conditions
+  const isTerminal = localStorage.getItem('rems_auth_mode') === 'terminal' || authMode === 'terminal';
+
+  if (!user || isTerminal) {
     return <Login />;
   }
 
   // 🚀 MODULE-SPECIFIC REDIRECTION (Strict Matrix Driven)
-  // This ensures users are only redirected if they truly lack access to the specific module
   const path = location.pathname;
   const isAtDashboard = path === '/dashboard' || path === '/';
   const isAtDirectory = path === '/employees';

@@ -1,19 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient"; 
+import { DetectiveEngine } from "../../utils/disciplinary/DetectiveEngine";
+import { performAssessment } from "../../utils/disciplinary/AssessmentService";
+import { getHistoryContext } from "../../utils/disciplinary/HistoryService";
+import { OFFENCE_REGISTRY, DISCIPLINARY_LEVELS, AUTHORIZED_ISSUERS } from "../../utils/disciplinary/registry";
 import {
-  OFFENCE_REGISTRY,
-  suggestCharges,
-  getProbingQuestions,
-  generateLocalDraft,
-  DISCIPLINARY_LEVELS,
-  AUTHORIZED_ISSUERS
-} from "../../utils/disciplinaryEngine";
-import { submitEngineFeedback, notifyStaffOfDisciplinaryConsultation } from "../../utils/notificationService";
-import {
-  BrainCircuit, Check, Gavel, Plus, Search, Trash2, Wand2, X, AlertTriangle, MessageSquare, Send, ChevronRight, FileUp, Download
+  BrainCircuit, Check, Gavel, Plus, Search, Trash2, Wand2, X, AlertTriangle, MessageSquare, Send, ChevronRight, FileUp, Download, Info, ShieldCheck, History, ShieldAlert
 } from "lucide-react";
 import SummaryCard from "../common/SummaryCard";
 import StatusBadge from "../common/StatusBadge";
+import { submitEngineFeedback, notifyStaffOfDisciplinaryConsultation } from "../../utils/notificationService";
 
 export default function TabWarnings({ employee }) { 
   const [warningsList, setWarningsList] = useState([]);
@@ -30,11 +26,11 @@ export default function TabWarnings({ employee }) {
 
   // Wizard States
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [wizardPhase, setWizardPhase] = useState('DESC'); // 'DESC', 'PROBE', 'CHARGES'
+  const [wizardPhase, setWizardPhase] = useState('DESC'); // 'DESC', 'PROBE', 'JUDGE'
   const [wizardAnswers, setWizardAnswers] = useState({});
-  const [probingQuestions, setProbingQuestions] = useState([]);
-  const [selectedOffences, setSelectedOffences] = useState([]);
-  const [chargeSearch, setChargeSearch] = useState("");
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [assessment, setAssessment] = useState(null);
+  const [detective, setDetective] = useState(null);
 
   // Feedback states
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -60,43 +56,77 @@ export default function TabWarnings({ employee }) {
     setIsWizardOpen(true);
     setWizardPhase('DESC');
     setWizardAnswers({});
-    setSelectedOffences([]);
-    setChargeSearch("");
+    setAssessment(null);
+    setDetective(null);
   };
 
   const handleAnswerChange = (id, val) => {
     setWizardAnswers(prev => ({ ...prev, [id]: val }));
+
+    if (detective) {
+        detective.submitAnswer(id, val);
+        const nextQ = detective.getCurrentQuestion();
+        if (nextQ) {
+            setCurrentQuestion(nextQ);
+        } else {
+            finalizeDetective();
+        }
+    }
   };
 
   const handleDescSubmit = () => {
     if (!wizardAnswers.description || wizardAnswers.description.length < 5) return alert("Please provide a brief description first.");
-    const probes = getProbingQuestions(wizardAnswers);
-    if (probes.length > 0) {
-      setProbingQuestions(probes);
+
+    const engine = new DetectiveEngine(wizardAnswers.description);
+    setDetective(engine);
+
+    if (engine.scenario) {
+      setCurrentQuestion(engine.getCurrentQuestion());
       setWizardPhase('PROBE');
     } else {
-      finalizeQuestions();
+      setWizardPhase('JUDGE');
     }
   };
 
-  const finalizeQuestions = () => {
-    const suggested = suggestCharges(wizardAnswers);
-    setSelectedOffences(suggested);
-    setWizardPhase('CHARGES');
-  };
+  const finalizeDetective = async () => {
+    const incident = detective.getStructuredIncident();
+    const history = await getHistoryContext(employee.id, incident.offence_id, incident.dna);
 
-  const toggleOffence = (offence) => {
-    setSelectedOffences(prev => prev.find(o => o.id === offence.id) ? prev.filter(o => o.id !== offence.id) : [...prev, offence]);
+    const result = performAssessment(incident, history);
+    setAssessment(result);
+    setWizardPhase('JUDGE');
   };
 
   const handleGenerateFinalText = () => {
-    const draft = generateLocalDraft({
-      employeeName: `${employee.first_name} ${employee.last_name}`,
-      date: incidentDate,
-      answers: wizardAnswers,
-      selectedOffences: selectedOffences
-    });
-    setDescription(draft);
+    // 💡 PASSIVE NARRATOR: Consumes established facts and scenario templates
+    const dateStr = new Date(incidentDate).toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const scenario = detective.scenario;
+
+    let narrative = "";
+
+    // 1. Scenario-Specific Factual Summary
+    if (scenario.narrative_template) {
+        narrative += scenario.narrative_template({ ...wizardAnswers, date: dateStr }) + "\n\n";
+    } else {
+        narrative += `On ${dateStr}, the following incident was recorded:\n${wizardAnswers.description}\n\n`;
+    }
+
+    // 2. Primary Offence Designation
+    if (assessment.offence) {
+        narrative += `You are hereby issued with a ${assessment.recommendation} for:\n\n`;
+        narrative += `OFFENCE: Code ${assessment.offence.code} - ${assessment.offence.desc}\n\n`;
+    }
+
+    // 3. Supporting Disciplinary Reasons
+    if (assessment.supporting_reasons?.length > 0) {
+        narrative += `SUPPORTING REASONS:\n`;
+        assessment.supporting_reasons.forEach((reason, i) => {
+            narrative += `${i + 1}. ${reason}\n`;
+        });
+    }
+
+    setDescription(narrative);
+    setWarningLevel(assessment.recommendation);
     setIsWizardOpen(false);
     setIsAdding(true);
   };
@@ -131,7 +161,7 @@ export default function TabWarnings({ employee }) {
       const { error } = await supabase.from("employee_warnings").insert([{ employee_id: employee.id, warning_level: warningLevel, incident_date: incidentDate, description: description, issued_by: issuedBy, file_url: uploadedPath }]);
       if (error) throw error;
 
-      // 🧠 Knowledge Capture for AI Growth
+      // 🧠 Knowledge Capture
       try {
         await supabase.from("disciplinary_knowledge").insert([{
           employee_id: employee.id,
@@ -141,10 +171,9 @@ export default function TabWarnings({ employee }) {
           incident_date: incidentDate
         }]);
       } catch (kErr) {
-        console.warn("Knowledge capture table not found, skipping learning step.", kErr.message);
+        console.warn("Knowledge capture table not found.", kErr.message);
       }
 
-      // Notify Staff
       await notifyStaffOfDisciplinaryConsultation(employee, warningLevel);
 
       alert("Warning recorded. Staff member notified.");
@@ -180,15 +209,6 @@ export default function TabWarnings({ employee }) {
     } catch (err) { alert('Could not open file: ' + err.message); }
   };
 
-  const filteredRegistry = OFFENCE_REGISTRY.filter(o => o.desc.toLowerCase().includes(chargeSearch.toLowerCase()) || o.cat.toLowerCase().includes(chargeSearch.toLowerCase()))
-    .sort((a, b) => {
-      const aSelected = selectedOffences.some(o => o.id === a.id);
-      const bSelected = selectedOffences.some(o => o.id === b.id);
-      if (aSelected && !bSelected) return -1;
-      if (!aSelected && bSelected) return 1;
-      return 0;
-    });
-
   return (
     <div className="space-y-6 text-xs">
 
@@ -209,56 +229,110 @@ export default function TabWarnings({ employee }) {
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
                   <div className="text-center space-y-2">
                     <h4 className="text-lg font-black text-slate-900 leading-tight">Summarize the Incident</h4>
-                    <p className="text-slate-500 font-medium">Describe what happened. The engine will investigate the legal specifics.</p>
+                    <p className="text-slate-500 font-medium italic text-[11px]">Describe what happened in plain language. The detective will investigate the specifics.</p>
                   </div>
-                  <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm space-y-4">
-                    <textarea rows={6} value={wizardAnswers.description || ""} onChange={e => handleAnswerChange('description', e.target.value)} placeholder="e.g., Thabo hit a waiter during the lunch rush..." className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-sm focus:border-yellow-600 outline-none transition-all" />
+                  <div className="bg-white border-2 border-slate-200 p-6 rounded-3xl shadow-sm space-y-4">
+                    <textarea rows={6} value={wizardAnswers.description || ""} onChange={e => handleAnswerChange('description', e.target.value)} placeholder="e.g., Sipho was late this morning..." className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 text-sm focus:border-yellow-600 outline-none transition-all placeholder:italic" />
                   </div>
-                  <button onClick={handleDescSubmit} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2">Analyze Facts <ChevronRight size={18}/></button>
+                  <button onClick={handleDescSubmit} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95">Analyze Factual Allegations <ChevronRight size={18}/></button>
                 </div>
               )}
 
-              {wizardPhase === 'PROBE' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                  <div className="bg-amber-50 border border-amber-200 p-6 rounded-3xl flex flex-col items-center text-center gap-4">
-                    <AlertTriangle className="text-amber-600" size={40} />
-                    <h4 className="text-amber-900 font-black text-lg uppercase">Expert Investigation Required</h4>
+              {wizardPhase === 'PROBE' && currentQuestion && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                  <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2rem] flex flex-col items-center text-center gap-6 shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-10"><Search size={80} /></div>
+                    <div className="w-16 h-16 bg-yellow-500/10 rounded-2xl flex items-center justify-center text-yellow-500 border border-yellow-500/20 shadow-xl"><BrainCircuit size={32} /></div>
+                    <div className="space-y-2">
+                        <h4 className="text-white font-black text-xl uppercase tracking-tight">{currentQuestion.label}</h4>
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">Investigation Phase: {currentQuestion.purpose}</p>
+                    </div>
                   </div>
-                  <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {probingQuestions.map(q => (
-                      <div key={q.id} className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">{q.label}</label>
-                        {q.type === 'boolean' ? (
-                          <div className="flex gap-2">
-                            <button onClick={() => handleAnswerChange(q.id, true)} className={`flex-1 py-2.5 rounded-xl border-2 font-bold transition-all ${wizardAnswers[q.id] === true ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-400 border-slate-100'}`}>YES</button>
-                            <button onClick={() => handleAnswerChange(q.id, false)} className={`flex-1 py-2.5 rounded-xl border-2 font-bold transition-all ${wizardAnswers[q.id] === false ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-400 border-slate-100'}`}>NO</button>
-                          </div>
-                        ) : (
-                          <input type={q.type} value={wizardAnswers[q.id] || ""} onChange={e => handleAnswerChange(q.id, e.target.value)} className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2.5 text-sm" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex gap-3"><button onClick={() => setWizardPhase('DESC')} className="px-6 py-3 border-2 border-slate-100 rounded-xl font-bold text-slate-400">Back</button><button onClick={finalizeQuestions} className="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black uppercase shadow-lg">Finalize Detail</button></div>
-                </div>
-              )}
 
-              {wizardPhase === 'CHARGES' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                  <div className="text-center space-y-2"><h4 className="text-lg font-black text-slate-900">Map Annexure B Charges</h4><p className="text-slate-500 font-medium">Select the official codes that apply. Suggested charges are prioritized.</p></div>
-                  <input type="text" placeholder="Search charges..." value={chargeSearch} onChange={e => setChargeSearch(e.target.value)} className="w-full px-6 py-3 bg-white border-2 border-slate-100 rounded-2xl font-bold outline-none focus:border-yellow-600 transition-all" />
-                  <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
-                    {filteredRegistry.map(offence => {
-                      const isSelected = selectedOffences.some(o => o.id === offence.id);
-                      return (
-                        <button key={offence.id} onClick={() => toggleOffence(offence)} className={`p-4 border-2 rounded-2xl text-left transition-all flex items-center justify-between ${isSelected ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-100 hover:border-yellow-600'}`}>
-                          <div className="flex-1"><p className="font-bold text-xs">{offence.desc}</p></div>
-                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'bg-yellow-600 border-yellow-600' : 'border-slate-100'}`}>{isSelected && <Check size={14} className="text-white" />}</div>
+                  <div className="grid grid-cols-1 gap-4 max-w-md mx-auto">
+                    {currentQuestion.type === 'boolean_tristate' ? (
+                      <div className="space-y-3">
+                        <button onClick={() => handleAnswerChange(currentQuestion.id, true)} className="w-full p-6 bg-white border-2 border-slate-100 rounded-3xl text-sm font-black text-slate-900 hover:border-emerald-500 hover:bg-emerald-50 transition-all flex items-center justify-between group shadow-sm hover:shadow-xl">
+                            YES / TRUE
+                            <Check className="text-emerald-500 opacity-0 group-hover:opacity-100" />
                         </button>
-                      );
-                    })}
+                        <button onClick={() => handleAnswerChange(currentQuestion.id, false)} className="w-full p-6 bg-white border-2 border-slate-100 rounded-3xl text-sm font-black text-slate-900 hover:border-rose-500 hover:bg-rose-50 transition-all flex items-center justify-between group shadow-sm hover:shadow-xl">
+                            NO / FALSE
+                            <X className="text-rose-500 opacity-0 group-hover:opacity-100" />
+                        </button>
+                        <button onClick={() => handleAnswerChange(currentQuestion.id, 'unknown')} className="w-full p-6 bg-slate-100 border-2 border-slate-200 rounded-3xl text-sm font-black text-slate-400 hover:bg-slate-200 transition-all flex items-center justify-between shadow-inner">
+                            UNKNOWN / UNCERTAIN
+                            <Info size={18} />
+                        </button>
+                      </div>
+                    ) : currentQuestion.type === 'select' ? (
+                        <div className="space-y-3">
+                            {currentQuestion.options.map(opt => (
+                                <button key={opt.value} onClick={() => handleAnswerChange(currentQuestion.id, opt.value)} className="w-full p-6 bg-white border-2 border-slate-100 rounded-3xl text-sm font-black text-slate-900 hover:border-yellow-500 hover:bg-yellow-50 transition-all text-left shadow-sm hover:shadow-xl">
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="bg-white border-2 border-slate-100 p-8 rounded-[2rem] shadow-xl">
+                            <input
+                                type={currentQuestion.type}
+                                autoFocus
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 text-2xl font-black text-center outline-none focus:border-yellow-600 transition-all"
+                                onKeyDown={e => e.key === 'Enter' && handleAnswerChange(currentQuestion.id, e.target.value)}
+                            />
+                            <p className="text-center text-[10px] text-slate-400 font-bold uppercase mt-4 tracking-widest">Press Enter to Confirm</p>
+                        </div>
+                    )}
                   </div>
-                  <div className="pt-4 flex gap-3 border-t border-slate-100"><button onClick={() => setWizardPhase('PROBE')} className="px-6 py-3 border-2 border-slate-100 rounded-xl font-bold text-slate-400">Back</button><button onClick={handleGenerateFinalText} disabled={selectedOffences.length === 0} className="flex-1 bg-yellow-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"><Wand2 size={20} /> Generate Narrative</button></div>
+                </div>
+              )}
+
+              {wizardPhase === 'JUDGE' && assessment && (
+                <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+                  <div className={`p-8 rounded-[2.5rem] border-4 flex flex-col items-center text-center gap-6 shadow-2xl ${
+                      assessment.outcome === 'INSUFFICIENT_INFORMATION' ? 'bg-rose-50 border-rose-200' :
+                      assessment.outcome === 'RECOMMEND_INVESTIGATION' ? 'bg-amber-50 border-amber-200' :
+                      'bg-emerald-50 border-emerald-200'
+                  }`}>
+                    {assessment.outcome === 'INSUFFICIENT_INFORMATION' ? <ShieldAlert size={64} className="text-rose-600" /> : <ShieldCheck size={64} className="text-emerald-600" />}
+                    <div>
+                        <h4 className={`font-black text-2xl uppercase tracking-tight ${assessment.outcome === 'INSUFFICIENT_INFORMATION' ? 'text-rose-900' : 'text-emerald-900'}`}>
+                            {assessment.outcome.replace(/_/g, ' ')}
+                        </h4>
+                        <p className="text-slate-600 font-medium text-sm max-w-md mt-2 leading-relaxed">{assessment.explanation}</p>
+                    </div>
+                  </div>
+
+                  {assessment.outcome === 'RECOMMEND_WARNING' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <SummaryCard title="Pillar 1: Occurrence" icon={History}>
+                            <div className="py-2">
+                                <span className="text-3xl font-black text-slate-900">Instance #{assessment.pillars.occurrence}</span>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Based on specific Offence ID history</p>
+                            </div>
+                        </SummaryCard>
+                        <SummaryCard title="Pillar 2: Pattern" icon={BrainCircuit}>
+                            <div className="py-2">
+                                <span className={`text-xs font-black uppercase tracking-widest ${assessment.pillars.has_pattern ? 'text-amber-600' : 'text-slate-400'}`}>
+                                    {assessment.pillars.has_pattern ? 'Pattern Detected' : 'No Related Pattern'}
+                                </span>
+                                <p className="text-[9px] text-slate-400 font-medium mt-1">Checked category taxonomy DNA</p>
+                            </div>
+                        </SummaryCard>
+                    </div>
+                  )}
+
+                  <div className="pt-4 flex gap-3 border-t border-slate-100">
+                    <button onClick={() => setWizardPhase('DESC')} className="px-8 py-4 border-2 border-slate-200 rounded-2xl font-black text-[10px] uppercase text-slate-400 tracking-widest hover:bg-slate-100 transition-all">Restart</button>
+                    <button
+                        onClick={handleGenerateFinalText}
+                        disabled={assessment.outcome !== 'RECOMMEND_WARNING'}
+                        className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-2xl flex items-center justify-center gap-3 disabled:opacity-30 transition-all active:scale-95"
+                    >
+                        <Wand2 size={20} className="text-yellow-500" /> Commit to Formal Record
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

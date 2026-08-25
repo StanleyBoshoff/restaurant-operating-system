@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient"; 
-import { DetectiveEngine } from "../../utils/disciplinary/DetectiveEngine";
-import { performAssessment } from "../../utils/disciplinary/AssessmentService";
-import { getHistoryContext } from "../../utils/disciplinary/HistoryService";
-import { OFFENCE_REGISTRY, DISCIPLINARY_LEVELS, AUTHORIZED_ISSUERS } from "../../utils/disciplinary/registry";
+import { OFFENCE_REGISTRY, DISCIPLINARY_LEVELS, AUTHORIZED_ISSUERS } from "../../utils/disciplinaryEngine";
+import { UniversalEngine } from "../../utils/disciplinary/UniversalEngine";
+import { Judge } from "../../utils/disciplinary/Judge";
+import { fetchActiveHistory } from "../../utils/disciplinary/HistoryService";
 import {
-  BrainCircuit, Check, Gavel, Plus, Search, Trash2, Wand2, X, AlertTriangle, MessageSquare, Send, ChevronRight, FileUp, Download, Info, ShieldCheck, History, ShieldAlert
+  Plus, Trash2, X, Download, FileUp, Info, Gavel, History, BrainCircuit, ChevronRight, Check, Search, Wand2, ShieldCheck, ShieldAlert, AlertTriangle
 } from "lucide-react";
 import SummaryCard from "../common/SummaryCard";
-import StatusBadge from "../common/StatusBadge";
-import { submitEngineFeedback, notifyStaffOfDisciplinaryConsultation } from "../../utils/notificationService";
+import { notifyStaffOfDisciplinaryConsultation } from "../../utils/notificationService";
 
 export default function TabWarnings({ employee }) { 
   const [warningsList, setWarningsList] = useState([]);
@@ -26,16 +25,11 @@ export default function TabWarnings({ employee }) {
 
   // Wizard States
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [wizardPhase, setWizardPhase] = useState('DESC'); // 'DESC', 'PROBE', 'JUDGE'
-  const [wizardAnswers, setWizardAnswers] = useState({});
+  const [wizardPhase, setWizardPhase] = useState('ALLEGATION'); // 'ALLEGATION', 'INVESTIGATION', 'JUDGMENT'
+  const [allegation, setAllegation] = useState("");
+  const [engine, setEngine] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(null);
-  const [assessment, setAssessment] = useState(null);
-  const [detective, setDetective] = useState(null);
-
-  // Feedback states
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [feedbackNote, setFeedbackNote] = useState("");
-  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [judgment, setJudgment] = useState(null);
 
   const fetchEmployeeWarnings = async () => {
     try { 
@@ -54,95 +48,53 @@ export default function TabWarnings({ employee }) {
 
   const handleStartWizard = () => {
     setIsWizardOpen(true);
-    setWizardPhase('DESC');
-    setWizardAnswers({});
-    setAssessment(null);
-    setDetective(null);
+    setWizardPhase('ALLEGATION');
+    setAllegation("");
+    setEngine(null);
+    setJudgment(null);
   };
 
-  const handleAnswerChange = (id, val) => {
-    setWizardAnswers(prev => ({ ...prev, [id]: val }));
+  const handleAllegationSubmit = () => {
+    if (allegation.length < 5) return alert("Please provide a brief summary of the allegation.");
+    const newEngine = new UniversalEngine(allegation);
+    setEngine(newEngine);
 
-    if (detective) {
-        detective.submitAnswer(id, val);
-        const nextQ = detective.getCurrentQuestion();
-        if (nextQ) {
-            setCurrentQuestion(nextQ);
-        } else {
-            finalizeDetective();
-        }
-    }
-  };
-
-  const handleDescSubmit = () => {
-    if (!wizardAnswers.description || wizardAnswers.description.length < 5) return alert("Please provide a brief description first.");
-
-    const engine = new DetectiveEngine(wizardAnswers.description);
-    setDetective(engine);
-
-    if (engine.scenario) {
-      setCurrentQuestion(engine.getCurrentQuestion());
-      setWizardPhase('PROBE');
+    if (newEngine.blueprint) {
+      setCurrentQuestion(newEngine.getCurrentQuestion());
+      setWizardPhase('INVESTIGATION');
     } else {
-      setWizardPhase('JUDGE');
+      finalizeInvestigation(newEngine);
     }
   };
 
-  const finalizeDetective = async () => {
-    const incident = detective.getStructuredIncident();
-    const history = await getHistoryContext(employee.id, incident.offence_id, incident.dna);
-
-    const result = performAssessment(incident, history);
-    setAssessment(result);
-    setWizardPhase('JUDGE');
-  };
-
-  const handleGenerateFinalText = () => {
-    // 💡 PASSIVE NARRATOR: Consumes established facts and scenario templates
-    const dateStr = new Date(incidentDate).toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    const scenario = detective.scenario;
-
-    let narrative = "";
-
-    // 1. Scenario-Specific Factual Summary
-    if (scenario.narrative_template) {
-        narrative += scenario.narrative_template({ ...wizardAnswers, date: dateStr }) + "\n\n";
+  const handleAnswer = (val) => {
+    engine.submitAnswer(currentQuestion.id, val);
+    const nextQ = engine.getCurrentQuestion();
+    if (nextQ) {
+      setCurrentQuestion(nextQ);
     } else {
-        narrative += `On ${dateStr}, the following incident was recorded:\n${wizardAnswers.description}\n\n`;
+      finalizeInvestigation(engine);
     }
+  };
 
-    // 2. Primary Offence Designation
-    if (assessment.offence) {
-        narrative += `You are hereby issued with a ${assessment.recommendation} for:\n\n`;
-        narrative += `OFFENCE: Code ${assessment.offence.code} - ${assessment.offence.desc}\n\n`;
-    }
+  const finalizeInvestigation = async (activeEngine) => {
+    const incident = activeEngine.getStructuredIncident();
+    const history = await fetchActiveHistory(employee.id);
+    const result = Judge.assess(incident, history);
+    setJudgment(result);
+    setWizardPhase('JUDGMENT');
+  };
 
-    // 3. Supporting Disciplinary Reasons
-    if (assessment.supporting_reasons?.length > 0) {
-        narrative += `SUPPORTING REASONS:\n`;
-        assessment.supporting_reasons.forEach((reason, i) => {
-            narrative += `${i + 1}. ${reason}\n`;
-        });
-    }
-
-    setDescription(narrative);
-    setWarningLevel(assessment.recommendation);
+  const handleCommitJudgment = () => {
+    setDescription(judgment.narrative + "\n\n" +
+      "CHARGE(S):\n" +
+      judgment.offence.desc + "\n\n" +
+      "SUPPORTING REASONS:\n" +
+      judgment.supportingReasons.map((r, i) => `${i+1}. ${r}`).join('\n')
+    );
+    setWarningLevel(DISCIPLINARY_LEVELS[judgment.recommendation]?.label || judgment.recommendation);
     setIsWizardOpen(false);
     setIsAdding(true);
-  };
-
-  const handleSubmitFeedback = async () => {
-    try {
-      setIsSubmittingFeedback(true);
-      await submitEngineFeedback({ managerName: issuedBy || 'System Admin', originalFacts: JSON.stringify(wizardAnswers), generatedDraft: description, correctionNotes: feedbackNote });
-      alert("Correction sent to Stanley. Thank you.");
-      setShowFeedbackModal(false);
-      setFeedbackNote("");
-    } catch (err) {
-      alert("Failed to send feedback.");
-    } finally {
-      setIsSubmittingFeedback(false);
-    }
   };
 
   const handleFormSubmit = async (e) => {
@@ -158,21 +110,15 @@ export default function TabWarnings({ employee }) {
         if (sErr) throw sErr;
         uploadedPath = storageData.path;
       }
-      const { error } = await supabase.from("employee_warnings").insert([{ employee_id: employee.id, warning_level: warningLevel, incident_date: incidentDate, description: description, issued_by: issuedBy, file_url: uploadedPath }]);
+      const { error } = await supabase.from("employee_warnings").insert([{
+        employee_id: employee.id,
+        warning_level: warningLevel,
+        incident_date: incidentDate,
+        description: description,
+        issued_by: issuedBy,
+        file_url: uploadedPath
+      }]);
       if (error) throw error;
-
-      // 🧠 Knowledge Capture
-      try {
-        await supabase.from("disciplinary_knowledge").insert([{
-          employee_id: employee.id,
-          raw_facts: JSON.stringify(wizardAnswers),
-          final_draft: description,
-          warning_level: warningLevel,
-          incident_date: incidentDate
-        }]);
-      } catch (kErr) {
-        console.warn("Knowledge capture table not found.", kErr.message);
-      }
 
       await notifyStaffOfDisciplinaryConsultation(employee, warningLevel);
 
@@ -212,74 +158,67 @@ export default function TabWarnings({ employee }) {
   return (
     <div className="space-y-6 text-xs">
 
-      {/* 🚀 Expert Wizard Overlay */}
+      {/* 🚀 Universal Disciplinary Wizard */}
       {isWizardOpen && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-yellow-600 rounded-2xl flex items-center justify-center text-white"><Gavel size={20} /></div>
-                <h3 className="font-black text-slate-900 text-sm uppercase tracking-tight">Expert Disciplinary Engine</h3>
+                <div>
+                  <h3 className="font-black text-slate-900 text-sm uppercase tracking-tight">Professional Disciplinary Engine</h3>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Generic Framework v1.0</p>
+                </div>
               </div>
               <button onClick={() => setIsWizardOpen(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"><X size={20} /></button>
             </div>
 
             <div className="p-8 overflow-y-auto flex-1 bg-slate-50/50">
-              {wizardPhase === 'DESC' && (
+              {wizardPhase === 'ALLEGATION' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
                   <div className="text-center space-y-2">
-                    <h4 className="text-lg font-black text-slate-900 leading-tight">Summarize the Incident</h4>
-                    <p className="text-slate-500 font-medium italic text-[11px]">Describe what happened in plain language. The detective will investigate the specifics.</p>
+                    <h4 className="text-lg font-black text-slate-900 uppercase">State the Allegation</h4>
+                    <p className="text-slate-500 font-medium italic text-[11px]">Describe the incident in plain language. The engine will guide the investigation.</p>
                   </div>
-                  <div className="bg-white border-2 border-slate-200 p-6 rounded-3xl shadow-sm space-y-4">
-                    <textarea rows={6} value={wizardAnswers.description || ""} onChange={e => handleAnswerChange('description', e.target.value)} placeholder="e.g., Sipho was late this morning..." className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 text-sm focus:border-yellow-600 outline-none transition-all placeholder:italic" />
-                  </div>
-                  <button onClick={handleDescSubmit} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95">Analyze Factual Allegations <ChevronRight size={18}/></button>
+                  <textarea rows={6} value={allegation} onChange={e => setAllegation(e.target.value)} placeholder="e.g., Sarah was late for her shift..." className="w-full bg-white border-2 border-slate-200 rounded-3xl px-6 py-4 text-sm focus:border-yellow-600 outline-none transition-all shadow-sm" />
+                  <button onClick={handleAllegationSubmit} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95">Initiate Investigation <ChevronRight size={18}/></button>
                 </div>
               )}
 
-              {wizardPhase === 'PROBE' && currentQuestion && (
+              {wizardPhase === 'INVESTIGATION' && currentQuestion && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                   <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2rem] flex flex-col items-center text-center gap-6 shadow-2xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-10"><Search size={80} /></div>
                     <div className="w-16 h-16 bg-yellow-500/10 rounded-2xl flex items-center justify-center text-yellow-500 border border-yellow-500/20 shadow-xl"><BrainCircuit size={32} /></div>
                     <div className="space-y-2">
                         <h4 className="text-white font-black text-xl uppercase tracking-tight">{currentQuestion.label}</h4>
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">Investigation Phase: {currentQuestion.purpose}</p>
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em]">{currentQuestion.phase}</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 max-w-md mx-auto">
                     {currentQuestion.type === 'boolean_tristate' ? (
                       <div className="space-y-3">
-                        <button onClick={() => handleAnswerChange(currentQuestion.id, true)} className="w-full p-6 bg-white border-2 border-slate-100 rounded-3xl text-sm font-black text-slate-900 hover:border-emerald-500 hover:bg-emerald-50 transition-all flex items-center justify-between group shadow-sm hover:shadow-xl">
+                        <button onClick={() => handleAnswer(true)} className="w-full p-6 bg-white border-2 border-slate-100 rounded-3xl text-sm font-black text-slate-900 hover:border-emerald-500 hover:bg-emerald-50 transition-all flex items-center justify-between group shadow-sm hover:shadow-xl">
                             YES / TRUE
                             <Check className="text-emerald-500 opacity-0 group-hover:opacity-100" />
                         </button>
-                        <button onClick={() => handleAnswerChange(currentQuestion.id, false)} className="w-full p-6 bg-white border-2 border-slate-100 rounded-3xl text-sm font-black text-slate-900 hover:border-rose-500 hover:bg-rose-50 transition-all flex items-center justify-between group shadow-sm hover:shadow-xl">
+                        <button onClick={() => handleAnswer(false)} className="w-full p-6 bg-white border-2 border-slate-100 rounded-3xl text-sm font-black text-slate-900 hover:border-rose-500 hover:bg-rose-50 transition-all flex items-center justify-between group shadow-sm hover:shadow-xl">
                             NO / FALSE
                             <X className="text-rose-500 opacity-0 group-hover:opacity-100" />
                         </button>
-                        <button onClick={() => handleAnswerChange(currentQuestion.id, 'unknown')} className="w-full p-6 bg-slate-100 border-2 border-slate-200 rounded-3xl text-sm font-black text-slate-400 hover:bg-slate-200 transition-all flex items-center justify-between shadow-inner">
-                            UNKNOWN / UNCERTAIN
+                        <button onClick={() => handleAnswer('UNKNOWN')} className="w-full p-6 bg-slate-100 border-2 border-slate-200 rounded-3xl text-sm font-black text-slate-400 hover:bg-slate-200 transition-all flex items-center justify-between shadow-inner">
+                            UNKNOWN
                             <Info size={18} />
                         </button>
                       </div>
-                    ) : currentQuestion.type === 'select' ? (
-                        <div className="space-y-3">
-                            {currentQuestion.options.map(opt => (
-                                <button key={opt.value} onClick={() => handleAnswerChange(currentQuestion.id, opt.value)} className="w-full p-6 bg-white border-2 border-slate-100 rounded-3xl text-sm font-black text-slate-900 hover:border-yellow-500 hover:bg-yellow-50 transition-all text-left shadow-sm hover:shadow-xl">
-                                    {opt.label}
-                                </button>
-                            ))}
-                        </div>
                     ) : (
                         <div className="bg-white border-2 border-slate-100 p-8 rounded-[2rem] shadow-xl">
                             <input
-                                type={currentQuestion.type}
+                                type={currentQuestion.type === 'time' ? 'time' : currentQuestion.type === 'number' ? 'number' : 'text'}
                                 autoFocus
                                 className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-4 text-2xl font-black text-center outline-none focus:border-yellow-600 transition-all"
-                                onKeyDown={e => e.key === 'Enter' && handleAnswerChange(currentQuestion.id, e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleAnswer(e.target.value)}
                             />
                             <p className="text-center text-[10px] text-slate-400 font-bold uppercase mt-4 tracking-widest">Press Enter to Confirm</p>
                         </div>
@@ -288,49 +227,41 @@ export default function TabWarnings({ employee }) {
                 </div>
               )}
 
-              {wizardPhase === 'JUDGE' && assessment && (
+              {wizardPhase === 'JUDGMENT' && judgment && (
                 <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
                   <div className={`p-8 rounded-[2.5rem] border-4 flex flex-col items-center text-center gap-6 shadow-2xl ${
-                      assessment.outcome === 'INSUFFICIENT_INFORMATION' ? 'bg-rose-50 border-rose-200' :
-                      assessment.outcome === 'RECOMMEND_INVESTIGATION' ? 'bg-amber-50 border-amber-200' :
-                      'bg-emerald-50 border-emerald-200'
+                      judgment.recommendation === 'DISMISSAL' ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'
                   }`}>
-                    {assessment.outcome === 'INSUFFICIENT_INFORMATION' ? <ShieldAlert size={64} className="text-rose-600" /> : <ShieldCheck size={64} className="text-emerald-600" />}
+                    {judgment.recommendation === 'DISMISSAL' ? <ShieldAlert size={64} className="text-rose-600" /> : <ShieldCheck size={64} className="text-emerald-600" />}
                     <div>
-                        <h4 className={`font-black text-2xl uppercase tracking-tight ${assessment.outcome === 'INSUFFICIENT_INFORMATION' ? 'text-rose-900' : 'text-emerald-900'}`}>
-                            {assessment.outcome.replace(/_/g, ' ')}
+                        <h4 className="font-black text-2xl uppercase tracking-tight text-slate-900">
+                            {judgment.recommendation.replace(/_/g, ' ')} RECOMMENDED
                         </h4>
-                        <p className="text-slate-600 font-medium text-sm max-w-md mt-2 leading-relaxed">{assessment.explanation}</p>
+                        <p className="text-slate-600 font-medium text-sm max-w-md mt-2 leading-relaxed">{judgment.explanation}</p>
                     </div>
                   </div>
 
-                  {assessment.outcome === 'RECOMMEND_WARNING' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <SummaryCard title="Pillar 1: Occurrence" icon={History}>
-                            <div className="py-2">
-                                <span className="text-3xl font-black text-slate-900">Instance #{assessment.pillars.occurrence}</span>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Based on specific Offence ID history</p>
-                            </div>
-                        </SummaryCard>
-                        <SummaryCard title="Pillar 2: Pattern" icon={BrainCircuit}>
-                            <div className="py-2">
-                                <span className={`text-xs font-black uppercase tracking-widest ${assessment.pillars.has_pattern ? 'text-amber-600' : 'text-slate-400'}`}>
-                                    {assessment.pillars.has_pattern ? 'Pattern Detected' : 'No Related Pattern'}
-                                </span>
-                                <p className="text-[9px] text-slate-400 font-medium mt-1">Checked category taxonomy DNA</p>
-                            </div>
-                        </SummaryCard>
-                    </div>
-                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <SummaryCard title="Disciplinary Pillar" icon={History}>
+                          <div className="py-2">
+                              <span className="text-3xl font-black text-slate-900">Instance #{judgment.pillars.occurrence}</span>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Specific Offence Ladder</p>
+                          </div>
+                      </SummaryCard>
+                      <SummaryCard title="Behavioural Pattern" icon={BrainCircuit}>
+                          <div className="py-2">
+                              <span className={`text-xs font-black uppercase tracking-widest ${judgment.pillars.patternCount > 1 ? 'text-amber-600' : 'text-slate-400'}`}>
+                                  {judgment.pillars.patternCount > 1 ? 'Pattern Detected' : 'No Pattern'}
+                              </span>
+                              <p className="text-[9px] text-slate-400 font-medium mt-1">{judgment.pillars.patternCount} related entries in category</p>
+                          </div>
+                      </SummaryCard>
+                  </div>
 
                   <div className="pt-4 flex gap-3 border-t border-slate-100">
-                    <button onClick={() => setWizardPhase('DESC')} className="px-8 py-4 border-2 border-slate-200 rounded-2xl font-black text-[10px] uppercase text-slate-400 tracking-widest hover:bg-slate-100 transition-all">Restart</button>
-                    <button
-                        onClick={handleGenerateFinalText}
-                        disabled={assessment.outcome !== 'RECOMMEND_WARNING'}
-                        className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-2xl flex items-center justify-center gap-3 disabled:opacity-30 transition-all active:scale-95"
-                    >
-                        <Wand2 size={20} className="text-yellow-500" /> Commit to Formal Record
+                    <button onClick={() => setWizardPhase('ALLEGATION')} className="px-8 py-4 border-2 border-slate-200 rounded-2xl font-black text-[10px] uppercase text-slate-400 tracking-widest hover:bg-slate-100 transition-all">Restart</button>
+                    <button onClick={handleCommitJudgment} className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-2xl flex items-center justify-center gap-3 transition-all active:scale-95">
+                        <Wand2 size={20} className="text-yellow-500" /> Generate Formal Warning
                     </button>
                   </div>
                 </div>
@@ -343,8 +274,8 @@ export default function TabWarnings({ employee }) {
       {/* Registry View */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <ModuleWorkspaceHeader title="Disciplinary Registry" description="Professional local engine powered by Annexure B." icon={Gavel} actions={
-            <button onClick={handleStartWizard} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-slate-800 transition-all active:scale-95"><BrainCircuit size={16} /> Legal Engine Wizard</button>
+          <ModuleWorkspaceHeader title="Disciplinary Registry" description="Generic Professional Engine Framework." icon={Gavel} actions={
+            <button onClick={handleStartWizard} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-slate-800 transition-all active:scale-95"><BrainCircuit size={16} /> Disciplinary Wizard</button>
           }/>
           <div className="space-y-4">
             {warningsList.map(warning => (
@@ -393,30 +324,24 @@ export default function TabWarnings({ employee }) {
                 </div>
                 <textarea rows={12} value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 text-[11px] font-mono leading-relaxed outline-none focus:border-yellow-600" />
                 <div className="flex flex-col gap-2 pt-2">
-                   <button type="button" onClick={() => setShowFeedbackModal(true)} className="flex items-center justify-center gap-2 text-slate-400 hover:text-yellow-600 transition-colors py-1 group"><MessageSquare size={14} /><span className="font-bold text-[9px] uppercase tracking-widest group-hover:underline">Draft needs correction? Email Stanley</span></button>
                   <div className="flex gap-2"><button type="button" onClick={() => setIsAdding(false)} className="flex-1 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-bold text-[10px] uppercase">Cancel</button><button type="submit" disabled={isSaving} className="flex-[2] py-2.5 bg-yellow-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg disabled:opacity-50 transition-all active:scale-95">{isSaving ? "Saving..." : "Save Formal Record"}</button></div>
                 </div>
               </form>
             ) : (
-              <div className="py-12 text-center space-y-4 px-8 italic text-slate-400 leading-relaxed">Launch the <span className="text-yellow-600 font-bold">Legal Wizard</span> to draft a sound warning using Annexure B charges.</div>
+              <div className="py-12 text-center space-y-4 px-8 italic text-slate-400 leading-relaxed">
+                <button onClick={() => setIsAdding(true)} className="w-full bg-slate-900 text-white py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-800 transition-all">Manual Entry</button>
+                <div className="mt-4 text-[9px] font-bold uppercase tracking-widest text-slate-400">
+                  Select Wizard to initiate a guided investigation.
+                </div>
+              </div>
             )}
           </SummaryCard>
         </div>
       </div>
-
-      {/* 📩 Feedback Modal */}
-      {showFeedbackModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md p-8 space-y-6 shadow-2xl border border-slate-200">
-            <div className="text-center space-y-2"><h4 className="text-lg font-black text-slate-900">Engine Correction</h4><p className="text-slate-500 text-xs font-medium">Explain what was wrong with the generated draft. This will be emailed directly to Stanley.</p></div>
-            <textarea rows={5} value={feedbackNote} onChange={e => setFeedbackNote(e.target.value)} placeholder="e.g. The narrative should include the witness names more prominently..." className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-3 text-sm focus:border-yellow-600 outline-none transition-all" />
-            <div className="flex gap-3"><button onClick={() => setShowFeedbackModal(false)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold transition-all">Cancel</button><button onClick={handleSubmitFeedback} disabled={isSubmittingFeedback || !feedbackNote} className="flex-[2] bg-slate-900 text-white py-3 rounded-xl font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50">{isSubmittingFeedback ? "Dispatching..." : <><Send size={18} /> Notify Stanley</>}</button></div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
+
 
 function ModuleWorkspaceHeader({ title, description, icon: Icon, actions }) {
   return (

@@ -1,38 +1,32 @@
 import { supabase } from '../../supabaseClient';
-import { DISCIPLINARY_LEVELS } from './registry';
+import { DISCIPLINARY_LEVELS } from '../disciplinaryEngine';
 
 /**
- * Service for Evaluative History Scanning
- * Retrieves and filters warnings according to Annexure B validity periods.
+ * Service for fetching active disciplinary history.
  */
-
-export const getHistoryContext = async (employeeId, currentOffenceId, currentDNA = []) => {
-  const { data: rawHistory } = await supabase
+export const fetchActiveHistory = async (employeeId) => {
+  const { data: rawHistory, error } = await supabase
     .from('employee_warnings')
     .select('*')
     .eq('employee_id', employeeId);
 
+  if (error) {
+    console.error("Failed to fetch history:", error.message);
+    return [];
+  }
+
   const now = new Date();
 
-  // 1. Filter for ACTIVE warnings only
-  const activeWarnings = (rawHistory || []).map(w => {
+  // Filter for ACTIVE warnings only (based on standard durations)
+  return (rawHistory || []).map(w => {
+    // Map label back to key to get duration
     const levelKey = Object.keys(DISCIPLINARY_LEVELS).find(k => DISCIPLINARY_LEVELS[k].label === w.warning_level);
-    const monthsValid = DISCIPLINARY_LEVELS[levelKey]?.duration_months || 6;
+    const durationStr = DISCIPLINARY_LEVELS[levelKey]?.duration || '6 months';
+    const monthsValid = parseInt(durationStr) || 6;
 
     const expiryDate = new Date(w.incident_date);
     expiryDate.setMonth(expiryDate.getMonth() + monthsValid);
 
     return { ...w, is_active: expiryDate > now };
   }).filter(w => w.is_active);
-
-  // 2. Pillar Analysis
-  return {
-    same_offence_count: activeWarnings.filter(w => w.offence_id === currentOffenceId).length,
-    behavioural_patterns: activeWarnings.filter(w => {
-        // Match by Taxonomy DNA (Informational only)
-        return (w.dna_tags || []).some(tag => currentDNA.includes(tag));
-    }),
-    total_active_warnings: activeWarnings.length,
-    raw: activeWarnings
-  };
 };

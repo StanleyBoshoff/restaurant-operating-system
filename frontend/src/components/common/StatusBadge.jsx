@@ -17,7 +17,10 @@ export default function StatusBadge({ status, type = 'default' }) {
       case 'overdue':
       case 'high':
       case 'critical':
+      case 'not done':
         return 'bg-rose-100 text-rose-700 border-rose-200';
+      case 'not completed':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
       case 'inactive':
       case 'not applicable':
       case 'not configured':

@@ -1,5 +1,5 @@
 import { supabase } from '../supabaseClient';
-import { calculateDuration, getPayrollSettings } from './timesheetService';
+import { calculateDuration, calculateDurationWithSettings, getPayrollSettings, getPayrollCycleRange } from './timesheetService';
 import { calculateAnnualLeave, calculateSickLeave, calculateFamilyLeave } from './leaveEngine';
 import { getSaHolidaysForYear } from './saHolidayEngine';
 
@@ -27,9 +27,21 @@ export const getOperationalSnapshot = async () => {
   };
 };
 
-export const getMonthlyAttendanceSummary = async (month, year) => {
-  const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
-  const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+export const getMonthlyAttendanceSummary = async (startDateOrMonth, endDateOrYear, customCycleStartDay = null) => {
+  const settings = await getPayrollSettings();
+  let startDate, endDate;
+
+  if (typeof startDateOrMonth === 'string' && startDateOrMonth.includes('-')) {
+    startDate = startDateOrMonth;
+    endDate = endDateOrYear;
+  } else {
+    const month = parseInt(startDateOrMonth) || (new Date().getMonth() + 1);
+    const year = parseInt(endDateOrYear) || new Date().getFullYear();
+    const cycleStartDay = customCycleStartDay || settings?.payroll_cycle_start_day || 21;
+    const range = getPayrollCycleRange(new Date(year, month - 1, cycleStartDay), cycleStartDay);
+    startDate = range.startDateStr;
+    endDate = range.endDateStr;
+  }
 
   const { data: employees } = await supabase.from('employees').select('id, first_name, last_name, role');
   const { data: shifts } = await supabase
@@ -42,22 +54,46 @@ export const getMonthlyAttendanceSummary = async (month, year) => {
     const empShifts = (shifts || []).filter(s => s.employee_id === emp.id);
 
     let totalHours = 0;
-    let simpleOT = 0;
     let autoExits = 0;
     let approvedCount = 0;
 
     empShifts.forEach(s => {
-      const dur = parseFloat(calculateDuration(s.clock_in, s.clock_out || new Date().toISOString(), s.break_end ? 30 : 0));
+      const dur = parseFloat(
+        calculateDurationWithSettings(
+          s.clock_in,
+          s.clock_out || new Date().toISOString(),
+          settings,
+          s.break_start,
+          s.break_end
+        )
+      );
       totalHours += dur;
-      if (dur > 9) simpleOT += (dur - 9);
       if (s.auto_clocked_out) autoExits += 1;
       if (s.is_approved) approvedCount += 1;
     });
 
+    // OVERTIME IS WORKED STRICTLY ON TOTAL MONTHLY HOURS:
+    // Default norm is 195 hours, anything above that is overtime.
+    // No daily or weekly calculation.
+    const threshold = parseFloat(settings?.monthly_overtime_threshold_hrs) || 195.0;
+    const isMonthlyOTEnabled = settings?.enable_monthly_overtime !== false;
+
+    let regularHours = totalHours;
+    let totalOvertime = 0;
+
+    if (isMonthlyOTEnabled && totalHours > threshold) {
+      regularHours = threshold;
+      totalOvertime = totalHours - threshold;
+    } else {
+      regularHours = totalHours;
+      totalOvertime = 0;
+    }
+
     return {
       ...emp,
       totalHours: totalHours.toFixed(1),
-      totalOvertime: simpleOT.toFixed(1),
+      regularHours: regularHours.toFixed(1),
+      totalOvertime: totalOvertime.toFixed(1),
       totalShifts: empShifts.length,
       autoExits,
       approvalRate: empShifts.length > 0 ? Math.round((approvedCount / empShifts.length) * 100) : 0
@@ -68,15 +104,48 @@ export const getMonthlyAttendanceSummary = async (month, year) => {
 };
 
 export const getLabourMetrics = async (startDate, endDate) => {
-  const { data: timesheets, error } = await supabase.from('employee_timesheets').select('*, employees(first_name, last_name, role, department)').gte('clock_in', startDate).lte('clock_in', endDate);
+  const settings = await getPayrollSettings();
+  const threshold = parseFloat(settings?.monthly_overtime_threshold_hrs) || 195.0;
+  const { data: timesheets, error } = await supabase.from('employee_timesheets').select('*, employees(id, first_name, last_name, role, department)').gte('clock_in', startDate).lte('clock_in', endDate);
   if (error) throw error;
+
+  // Track each employee's total hours to determine monthly overtime
+  const empTotals = {};
+  (timesheets || []).forEach(ts => {
+    const empId = ts.employee_id;
+    const duration = parseFloat(
+      calculateDurationWithSettings(
+        ts.clock_in,
+        ts.clock_out || new Date().toISOString(),
+        settings,
+        ts.break_start,
+        ts.break_end
+      )
+    );
+    empTotals[empId] = (empTotals[empId] || 0) + duration;
+  });
+
   return (timesheets || []).reduce((acc, ts) => {
     const dept = ts.employees?.department || 'Unassigned';
     if (!acc[dept]) acc[dept] = { hours: 0, overtime: 0, shifts: 0 };
-    const duration = parseFloat(calculateDuration(ts.clock_in, ts.clock_out || new Date().toISOString(), ts.break_end ? 30 : 0));
+    const duration = parseFloat(
+      calculateDurationWithSettings(
+        ts.clock_in,
+        ts.clock_out || new Date().toISOString(),
+        settings,
+        ts.break_start,
+        ts.break_end
+      )
+    );
     acc[dept].hours += duration;
     acc[dept].shifts += 1;
-    if (duration > 9) acc[dept].overtime += (duration - 9);
+    // Overtime only if the employee has exceeded the monthly threshold
+    const empTotal = empTotals[ts.employee_id] || 0;
+    if (empTotal > threshold) {
+      const excess = empTotal - threshold;
+      // Pro-rate or record overage once
+      acc[dept].overtime = Math.max(acc[dept].overtime, excess);
+    }
     return acc;
   }, {});
 };
@@ -369,8 +438,11 @@ export const getTardinessAnalysisReport = async (startDate, endDate, dept = 'All
 };
 
 export const getLaborCostVarianceReport = async (month, year, dept = 'All') => {
-  const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
-  const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+  const settings = await getPayrollSettings();
+  const cycleStartDay = settings?.payroll_cycle_start_day || 21;
+  const range = getPayrollCycleRange(new Date(year, month - 1, cycleStartDay), cycleStartDay);
+  const startDate = range.startDateStr;
+  const endDate = range.endDateStr;
 
   let budgetQuery = supabase.from('department_budgets').select('*').eq('month_year', startDate);
   if (dept !== 'All') budgetQuery = budgetQuery.eq('department', dept);
@@ -381,7 +453,15 @@ export const getLaborCostVarianceReport = async (month, year, dept = 'All') => {
   // Aggregate actuals by dept
   const actuals = (shifts || []).reduce((acc, s) => {
     const d = s.employees?.department || 'Unassigned';
-    const dur = parseFloat(calculateDuration(s.clock_in, s.clock_out || new Date().toISOString(), s.break_end ? 30 : 0));
+    const dur = parseFloat(
+      calculateDurationWithSettings(
+        s.clock_in,
+        s.clock_out || new Date().toISOString(),
+        settings,
+        s.break_start,
+        s.break_end
+      )
+    );
     const hourly = parseFloat((s.employees?.salary_wage || '0').replace(/[^0-9.]/g, '')) / 160; // Mock 160h month
     acc[d] = (acc[d] || 0) + (dur * hourly);
     return acc;
@@ -396,16 +476,45 @@ export const getLaborCostVarianceReport = async (month, year, dept = 'All') => {
 };
 
 export const getOvertimeTrackingReport = async (startDate, endDate, dept = 'All', employeeId = null) => {
-  const { data } = await getScopedAttendance(dept, employeeId).gte('shift_date', startDate).lte('shift_date', endDate);
-  return (data || []).map(s => {
-    const dur = parseFloat(calculateDuration(s.clock_in, s.clock_out || new Date().toISOString(), s.break_end ? 30 : 0));
-    return dur > 9 ? {
-      name: `${s.employees.first_name} ${s.employees.last_name}`,
-      date: s.shift_date,
-      total_hours: dur.toFixed(1),
-      overtime: (dur - 9).toFixed(1)
-    } : null;
-  }).filter(Boolean);
+  const settings = await getPayrollSettings();
+  const threshold = parseFloat(settings?.monthly_overtime_threshold_hrs) || 195.0;
+  const { data: shifts } = await getScopedAttendance(dept, employeeId).gte('shift_date', startDate).lte('shift_date', endDate);
+
+  // Group by employee across the pay cycle
+  const empMap = {};
+  (shifts || []).forEach(s => {
+    const id = s.employee_id;
+    if (!empMap[id]) {
+      empMap[id] = {
+        name: `${s.employees?.first_name || ''} ${s.employees?.last_name || ''}`.trim(),
+        department: s.employees?.department || 'Staff',
+        totalHours: 0,
+        shiftCount: 0
+      };
+    }
+    const dur = parseFloat(
+      calculateDurationWithSettings(
+        s.clock_in,
+        s.clock_out || new Date().toISOString(),
+        settings,
+        s.break_start,
+        s.break_end
+      )
+    );
+    empMap[id].totalHours += dur;
+    empMap[id].shiftCount += 1;
+  });
+
+  return Object.values(empMap)
+    .filter(e => e.totalHours > threshold)
+    .map(e => ({
+      name: e.name,
+      department: e.department,
+      total_hours: e.totalHours.toFixed(1) + 'h',
+      overtime: (e.totalHours - threshold).toFixed(1) + 'h',
+      threshold: threshold + 'h',
+      shift_count: e.shiftCount
+    }));
 };
 
 export const getAbsenteeismReport = async (startDate, endDate, dept = 'All', employeeId = null) => {

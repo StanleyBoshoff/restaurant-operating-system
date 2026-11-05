@@ -1,23 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import SummaryCard from '../common/SummaryCard';
 import { Calendar, ChevronLeft, ChevronRight, Download, Search, FileText, Users, AlertCircle } from 'lucide-react';
 import { getMonthlyAttendanceSummary } from '../../utils/reportingService';
+import { getPayrollSettings, getPayrollCycleRange } from '../../utils/timesheetService';
 
 export default function TabMonthlySummary() {
   const [summary, setSummary] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [payrollSettings, setPayrollSettings] = useState(null);
+  const [currentCycleDate, setCurrentCycleDate] = useState(new Date());
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
+    async function loadSettings() {
+      const settings = await getPayrollSettings();
+      setPayrollSettings(settings);
+    }
+    loadSettings();
+  }, []);
+
+  const cycleStartDay = payrollSettings?.payroll_cycle_start_day ?? 21;
+
+  const cycleRange = useMemo(() => {
+    return getPayrollCycleRange(currentCycleDate, cycleStartDay);
+  }, [currentCycleDate, cycleStartDay]);
+
+  useEffect(() => {
     fetchMonthlyData();
-  }, [currentMonth, currentYear]);
+  }, [cycleRange.startDateStr, cycleRange.endDateStr]);
 
   const fetchMonthlyData = async () => {
     setLoading(true);
     try {
-      const data = await getMonthlyAttendanceSummary(currentMonth, currentYear);
+      const data = await getMonthlyAttendanceSummary(cycleRange.startDateStr, cycleRange.endDateStr);
       setSummary(data || []);
     } catch (err) {
       console.error("Failed to fetch monthly attendance summary:", err);
@@ -26,17 +41,8 @@ export default function TabMonthlySummary() {
     }
   };
 
-  const changeMonth = (direction) => {
-    let nextMonth = currentMonth + direction;
-    let nextYear = currentYear;
-    if (nextMonth > 12) { nextMonth = 1; nextYear++; }
-    if (nextMonth < 1) { nextMonth = 12; nextYear--; }
-    setCurrentMonth(nextMonth);
-    setCurrentYear(nextYear);
-  };
-
-  const getMonthLabel = () => {
-    return new Date(currentYear, currentMonth - 1).toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+  const changeCycle = (direction) => {
+    setCurrentCycleDate(prev => new Date(prev.getFullYear(), prev.getMonth() + direction, Math.min(prev.getDate(), 28)));
   };
 
   const filteredData = summary.filter(emp =>
@@ -47,6 +53,28 @@ export default function TabMonthlySummary() {
   const totalOvertime = filteredData.reduce((acc, emp) => acc + (parseFloat(emp.totalOvertime) || 0), 0);
   const totalAutoExits = filteredData.reduce((acc, emp) => acc + (emp.autoExits || 0), 0);
 
+  const exportCSV = () => {
+    if (filteredData.length === 0) return;
+    const headers = ['Employee', 'Job Role', 'Regular Hours', 'Overtime', 'Total Shifts', 'Auto Exits', 'Approval Rate'];
+    const rows = filteredData.map(e => [
+      `"${e.first_name} ${e.last_name}"`,
+      `"${e.role || ''}"`,
+      e.totalHours,
+      e.totalOvertime,
+      e.totalShifts,
+      e.autoExits,
+      `${e.approvalRate}%`
+    ].join(','));
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `monthly_attendance_summary_${cycleRange.startDateStr}_to_${cycleRange.endDateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
 
@@ -54,20 +82,25 @@ export default function TabMonthlySummary() {
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => changeMonth(-1)}
+            onClick={() => changeCycle(-1)}
             className="p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-3xs active:scale-95"
+            title="Previous Pay Cycle"
           >
             <ChevronLeft size={16} className="text-slate-600" />
           </button>
 
-          <div className="px-4 py-2 bg-white border border-slate-200 rounded-xl flex items-center gap-3 shadow-3xs min-w-[200px] justify-center">
-            <Calendar size={14} className="text-yellow-600" />
-            <span className="text-xs font-black text-slate-900 uppercase tracking-widest">{getMonthLabel()}</span>
+          <div className="px-4 py-2 bg-white border border-slate-200 rounded-xl flex items-center gap-3 shadow-3xs min-w-[220px] justify-center text-center">
+            <Calendar size={14} className="text-yellow-600 shrink-0" />
+            <div>
+              <span className="text-xs font-black text-slate-900 uppercase tracking-widest block leading-none">{cycleRange.shortLabel}</span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5 block">{cycleRange.cycleLabel}</span>
+            </div>
           </div>
 
           <button
-            onClick={() => changeMonth(1)}
+            onClick={() => changeCycle(1)}
             className="p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-3xs active:scale-95"
+            title="Next Pay Cycle"
           >
             <ChevronRight size={16} className="text-slate-600" />
           </button>
@@ -84,7 +117,10 @@ export default function TabMonthlySummary() {
               className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-yellow-500/20 shadow-3xs"
             />
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm active:scale-95">
+          <button
+            onClick={exportCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm active:scale-95"
+          >
             <Download size={14} />
             Monthly Export
           </button>
@@ -119,7 +155,7 @@ export default function TabMonthlySummary() {
               ) : filteredData.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="px-6 py-12 text-center italic text-slate-400">
-                    No records found for this month.
+                    No records found for this pay cycle.
                   </td>
                 </tr>
               ) : (
@@ -134,7 +170,7 @@ export default function TabMonthlySummary() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-slate-500 font-medium">{emp.role}</td>
-                    <td className="px-6 py-4 text-center font-black text-slate-700">{emp.totalHours}h</td>
+                    <td className="px-6 py-4 text-center font-black text-slate-700">{emp.regularHours}h</td>
                     <td className="px-6 py-4 text-center font-black text-rose-600">{emp.totalOvertime}h</td>
                     <td className="px-6 py-4 text-center font-bold text-slate-400">{emp.totalShifts}</td>
                     <td className="px-6 py-4 text-center">
@@ -169,7 +205,7 @@ export default function TabMonthlySummary() {
       {/* Summary Footer */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-slate-900 rounded-2xl p-5 text-white flex flex-col justify-between h-32 shadow-lg">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Store Monthly Hours</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Store Pay Cycle Hours</p>
           <div className="flex items-end justify-between">
             <h2 className="text-3xl font-black">{totalPayrollHours.toFixed(1)}</h2>
             <div className="w-8 h-8 bg-yellow-600 rounded-lg flex items-center justify-center">

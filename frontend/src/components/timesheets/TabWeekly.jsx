@@ -59,11 +59,8 @@ export default function TabWeekly() {
   );
 
   const totalPayrollHours = filteredData.reduce((acc, ts) => acc + parseFloat(calculateDuration(ts.clock_in, ts.clock_out, ts.break_end ? 30 : 0)), 0);
-  const totalOvertime = filteredData.reduce((acc, ts) => {
-    const duration = parseFloat(calculateDuration(ts.clock_in, ts.clock_out, ts.break_end ? 30 : 0));
-    return acc + (duration > 9 ? duration - 9 : 0);
-  }, 0);
   const activeShiftsCount = filteredData.filter(ts => ts.status === 'Active' || ts.status === 'On Break').length;
+  const completedShiftsCount = filteredData.filter(ts => ts.status === 'Completed').length;
   const lateArrivalsCount = 0; // Logic for "Late" needs threshold vs Roster
 
   return (
@@ -181,9 +178,7 @@ export default function TabWeekly() {
                         )}
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <span className={`px-2 py-1 rounded-lg font-black text-[11px] ${
-                          parseFloat(duration) > 9 ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-700'
-                        }`}>
+                        <span className="px-2 py-1 rounded-lg font-black text-[11px] bg-slate-100 text-slate-700">
                           {duration}h
                         </span>
                       </td>
@@ -217,8 +212,8 @@ export default function TabWeekly() {
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between h-32 shadow-sm">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Overtime Units</p>
-          <h2 className="text-3xl font-black text-rose-600">{totalOvertime.toFixed(1)}</h2>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Completed Shifts</p>
+          <h2 className="text-3xl font-black text-slate-800">{completedShiftsCount.toString().padStart(2, '0')}</h2>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between h-32 shadow-sm">

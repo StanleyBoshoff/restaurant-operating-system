@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import SummaryCard from '../common/SummaryCard';
-import { Wallet, Save, Info, AlertTriangle, Coffee, Calendar, Globe, Clock, Timer } from 'lucide-react';
-import { getPayrollSettings, updatePayrollSettings } from '../../utils/timesheetService';
+import { Wallet, Save, Info, AlertTriangle, Coffee, Calendar, Globe, Clock, Timer, CalendarDays } from 'lucide-react';
+import { getPayrollSettings, updatePayrollSettings, getPayrollCycleRange } from '../../utils/timesheetService';
 
 export default function TabPayroll() {
   const [settings, setSettings] = useState({
@@ -15,7 +15,8 @@ export default function TabPayroll() {
     monthly_overtime_threshold_hrs: 195.0,
     enable_monthly_overtime: true,
     enable_sunday_premium: true,
-    enable_holiday_premium: true
+    enable_holiday_premium: true,
+    payroll_cycle_start_day: 21
   });
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -47,6 +48,10 @@ export default function TabPayroll() {
     }
   };
 
+  const cyclePreview = useMemo(() => {
+    return getPayrollCycleRange(new Date(), settings.payroll_cycle_start_day ?? 21);
+  }, [settings.payroll_cycle_start_day]);
+
   if (loading) return <div className="py-20 text-center italic text-slate-400">Loading payroll engine...</div>;
 
   return (
@@ -68,6 +73,93 @@ export default function TabPayroll() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {/* Payroll Calendar Cycle */}
+        <div className="col-span-1 md:col-span-2">
+          <SummaryCard title="Payroll Calendar Cycle" icon={CalendarDays}>
+            <div className="space-y-6 py-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="max-w-md">
+                  <p className="text-xs font-bold text-slate-700">Monthly Cycle Start Date</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Select the day of the month when your store's payroll cycle starts. Attendance registers, timesheets, and payroll reports automatically run according to this cycle.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase text-slate-400">Cycle Start:</span>
+                  <select
+                    value={settings.payroll_cycle_start_day ?? 21}
+                    onChange={e => setSettings({ ...settings, payroll_cycle_start_day: parseInt(e.target.value) })}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-black text-slate-800 outline-none focus:ring-2 focus:ring-yellow-500/20"
+                  >
+                    <option value={21}>21st of the month (Default • 21st to 20th)</option>
+                    <option value={1}>1st of the month (Calendar Month • 1st to End)</option>
+                    <option value={15}>15th of the month (15th to 14th)</option>
+                    <option value={16}>16th of the month (16th to 15th)</option>
+                    <option value={20}>20th of the month (20th to 19th)</option>
+                    <option value={25}>25th of the month (25th to 24th)</option>
+                    <option value={26}>26th of the month (26th to 25th)</option>
+                    <optgroup label="Other Days">
+                      {Array.from({ length: 28 }, (_, i) => i + 1)
+                        .filter(d => ![1, 15, 16, 20, 21, 25, 26].includes(d))
+                        .map(d => (
+                          <option key={d} value={d}>
+                            Day {d} of the month
+                          </option>
+                        ))}
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 mr-1">Quick Presets:</span>
+                {[
+                  { day: 21, label: '21st to 20th (Default)' },
+                  { day: 25, label: '25th to 24th' },
+                  { day: 26, label: '26th to 25th' },
+                  { day: 1, label: '1st to Month-End' },
+                  { day: 15, label: '15th to 14th' }
+                ].map(p => (
+                  <button
+                    key={p.day}
+                    type="button"
+                    onClick={() => setSettings({ ...settings, payroll_cycle_start_day: p.day })}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                      (settings.payroll_cycle_start_day ?? 21) === p.day
+                        ? 'bg-yellow-600 text-white shadow-sm'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Live Preview Box */}
+              <div className="p-4 bg-gradient-to-r from-yellow-50/70 to-amber-50/70 border border-yellow-200/60 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-yellow-600 flex items-center justify-center text-white shadow-md shrink-0">
+                    <CalendarDays size={20} />
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-yellow-800 uppercase tracking-widest">Active Pay Cycle Preview</p>
+                    <h4 className="text-sm font-black text-slate-900 mt-0.5">{cyclePreview.detailedLabel}</h4>
+                    <p className="text-[10px] font-bold text-slate-500 mt-0.5">
+                      Cycle: {cyclePreview.cycleLabel} • {cyclePreview.spansMultipleMonths ? 'Runs across 2 different months' : 'Runs within a single calendar month'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="px-3 py-1 bg-white border border-yellow-300 rounded-lg text-[10px] font-black text-yellow-900 uppercase tracking-wider shadow-2xs">
+                    {cyclePreview.shortLabel}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </SummaryCard>
+        </div>
 
         {/* Break Rules */}
         <SummaryCard title="Meal Interval (The 5-Hour Rule)" icon={Coffee}>

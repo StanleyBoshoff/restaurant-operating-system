@@ -122,8 +122,7 @@ function AppContent() {
     { id: 'leave', name: 'Leave', icon: Calendar, path: '/leave' },
     { id: 'disciplinary', name: 'Disciplinary', icon: Gavel, path: '/disciplinary' },
     { id: 'training', name: 'Training', icon: GraduationCap, path: '/training' },
-    { id: 'tasks', name: 'Tasks', icon: CheckSquare, path: '/tasks' },
-    { id: 'checklists', name: 'Checklists', icon: ClipboardList, path: '/checklists' },
+    { id: 'tasks', name: 'Tasks & Checklists', icon: CheckSquare, path: '/tasks' },
     { id: 'forms', name: 'Forms', icon: FileText, path: '/forms' },
     { id: 'safety', name: 'Health & Safety', icon: ShieldCheck, path: '/safety' },
     { id: 'communication', name: 'Communication', icon: MessageSquare, path: '/communication' },
@@ -211,7 +210,7 @@ function AppContent() {
             <Route path="/disciplinary/*" element={<DisciplinaryWorkspace />} />
             <Route path="/training/*" element={<TrainingWorkspace />} />
             <Route path="/tasks/*" element={<TasksWorkspace />} />
-            <Route path="/checklists/*" element={<ChecklistsWorkspace />} />
+            <Route path="/checklists/*" element={<Navigate to="/tasks" replace />} />
             <Route path="/forms/*" element={<FormsWorkspace />} />
             <Route path="/safety/*" element={<SafetyWorkspace />} />
             <Route path="/communication/*" element={<CommunicationWorkspace />} />

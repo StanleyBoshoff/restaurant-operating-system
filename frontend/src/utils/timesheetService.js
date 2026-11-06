@@ -259,29 +259,39 @@ export const getTimesheetsInRange = async (startDate, endDate) => {
  * Calculates summary stats for a single employee.
  */
 export const getEmployeeTimesheetStats = async (employeeId) => {
-  const now = new Date();
-  const weekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+  const settings = await getPayrollSettings();
+  const cycleStartDay = settings?.payroll_cycle_start_day || 21;
+  const { startDateStr, endDateStr } = getPayrollCycleRange(new Date(), cycleStartDay);
 
   const { data: shifts, error } = await supabase
     .from('employee_timesheets')
     .select('*')
     .eq('employee_id', employeeId)
-    .gte('clock_in', weekAgo.toISOString());
+    .gte('shift_date', startDateStr)
+    .lte('shift_date', endDateStr);
 
   if (error) throw error;
 
   let totalHours = 0;
-  let totalOvertime = 0;
-
   (shifts || []).forEach(s => {
-    const duration = parseFloat(calculateDuration(s.clock_in, s.clock_out || new Date().toISOString(), s.break_end ? 30 : 0));
+    const duration = parseFloat(
+      calculateDurationWithSettings(
+        s.clock_in,
+        s.clock_out || new Date().toISOString(),
+        settings,
+        s.break_start,
+        s.break_end
+      )
+    );
     totalHours += duration;
-    if (duration > 9) totalOvertime += (duration - 9);
   });
+
+  const threshold = parseFloat(settings?.monthly_overtime_threshold_hrs) || 195.0;
+  const monthlyOT = totalHours > threshold ? totalHours - threshold : 0;
 
   return {
     weeklyHours: totalHours.toFixed(1),
-    weeklyOvertime: totalOvertime.toFixed(1),
+    weeklyOvertime: monthlyOT.toFixed(1),
     punctuality: 100 // Logic for "Late" requires Roster comparison
   };
 };
@@ -361,9 +371,98 @@ export const calculateDurationWithSettings = (start, end, settings, breakStart =
 };
 
 /**
+ * Helper to get ordinal suffix (1st, 2nd, 3rd, 4th...)
+ */
+function getOrdinalSuffix(i) {
+  const j = i % 10, k = i % 100;
+  if (j === 1 && k !== 11) return 'st';
+  if (j === 2 && k !== 12) return 'nd';
+  if (j === 3 && k !== 13) return 'rd';
+  return 'th';
+}
+
+/**
+ * Calculates start and end Date objects and ISO strings for a payroll cycle.
+ *
+ * @param {Date|string} referenceDate - Any date within the desired cycle
+ * @param {number} cycleStartDay - The day of month the cycle starts (e.g. 21, default 21)
+ * @returns {Object} cycle range info and formatted labels
+ */
+export const getPayrollCycleRange = (referenceDate = new Date(), cycleStartDay = 21) => {
+  const ref = new Date(referenceDate);
+  const startDay = Math.max(1, Math.min(28, parseInt(cycleStartDay) || 21));
+
+  let startYear = ref.getFullYear();
+  let startMonth = ref.getMonth();
+
+  if (startDay > 1) {
+    if (ref.getDate() < startDay) {
+      startMonth -= 1;
+    }
+  }
+
+  const start = new Date(startYear, startMonth, startDay, 0, 0, 0, 0);
+  const nextStart = new Date(start.getFullYear(), start.getMonth() + 1, startDay, 0, 0, 0, 0);
+  const end = new Date(nextStart.getFullYear(), nextStart.getMonth(), nextStart.getDate() - 1, 23, 59, 59, 999);
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const startDateStr = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+  const endDateStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+
+  const startMonthName = start.toLocaleDateString('en-ZA', { month: 'short' });
+  const endMonthName = end.toLocaleDateString('en-ZA', { month: 'short' });
+  const endYear = end.getFullYear();
+
+  let cycleLabel = '';
+  let shortLabel = '';
+
+  if (startDay === 1) {
+    cycleLabel = `1st to ${end.getDate()}${getOrdinalSuffix(end.getDate())} (${end.toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' })})`;
+    shortLabel = end.toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+  } else {
+    cycleLabel = `${startDay}${getOrdinalSuffix(startDay)} to ${end.getDate()}${getOrdinalSuffix(end.getDate())}`;
+    if (start.getFullYear() === end.getFullYear()) {
+      shortLabel = `${startMonthName} / ${endMonthName} ${endYear}`;
+    } else {
+      shortLabel = `${startMonthName} ${start.getFullYear()} / ${endMonthName} ${endYear}`;
+    }
+  }
+
+  return {
+    start,
+    end,
+    startDateStr,
+    endDateStr,
+    cycleStartDay: startDay,
+    cycleEndDay: end.getDate(),
+    cycleLabel,
+    shortLabel,
+    detailedLabel: `${start.getDate()} ${startMonthName} - ${end.getDate()} ${endMonthName} ${endYear}`,
+    spansMultipleMonths: startDay > 1
+  };
+};
+
+/**
+ * Returns an array of Date objects for each day in the payroll cycle.
+ */
+export const getPayrollCycleDates = (referenceDate = new Date(), cycleStartDay = 21) => {
+  const { start, end } = getPayrollCycleRange(referenceDate, cycleStartDay);
+  const dates = [];
+  let curr = new Date(start);
+  while (curr <= end) {
+    dates.push(new Date(curr));
+    curr.setDate(curr.getDate() + 1);
+  }
+  return dates;
+};
+
+/**
  * Fetches the store-wide payroll settings.
  */
 export const getPayrollSettings = async () => {
+  const localCycle = typeof localStorage !== 'undefined' ? localStorage.getItem('payroll_cycle_start_day') : null;
+  const fallbackCycleDay = localCycle ? parseInt(localCycle) : 21;
+
   const { data, error } = await supabase
     .from('company_payroll_settings')
     .select('*')
@@ -377,16 +476,56 @@ export const getPayrollSettings = async () => {
       lunch_duration_mins: 60,
       break_threshold_hrs: 5,
       sunday_multiplier: 1.5,
-      holiday_multiplier: 2.0
+      holiday_multiplier: 2.0,
+      auto_clock_out_hrs: 12,
+      shift_end_cutoff_time: '23:59:59',
+      monthly_overtime_threshold_hrs: 195.0,
+      enable_monthly_overtime: true,
+      enable_sunday_premium: true,
+      enable_holiday_premium: true,
+      payroll_cycle_start_day: fallbackCycleDay
     };
   }
-  return data;
+
+  return {
+    ...data,
+    payroll_cycle_start_day: data.payroll_cycle_start_day !== undefined && data.payroll_cycle_start_day !== null
+      ? data.payroll_cycle_start_day
+      : fallbackCycleDay
+  };
 };
 
 export const updatePayrollSettings = async (settings) => {
-  const { error } = await supabase
-    .from('company_payroll_settings')
-    .upsert([settings]);
+  if (settings.payroll_cycle_start_day !== undefined && typeof localStorage !== 'undefined') {
+    localStorage.setItem('payroll_cycle_start_day', String(settings.payroll_cycle_start_day));
+  }
 
-  if (error) throw error;
+  try {
+    const { error } = await supabase
+      .from('company_payroll_settings')
+      .upsert([settings]);
+
+    if (error) {
+      // If column doesn't exist yet in Supabase schema cache, retry without the column
+      if (error.message?.includes('payroll_cycle_start_day') || error.code === 'PGRST204') {
+        const { payroll_cycle_start_day, ...rest } = settings;
+        const { error: retryError } = await supabase
+          .from('company_payroll_settings')
+          .upsert([rest]);
+        if (retryError) throw retryError;
+        return;
+      }
+      throw error;
+    }
+  } catch (err) {
+    if (err.message?.includes('payroll_cycle_start_day') || err.code === 'PGRST204') {
+      const { payroll_cycle_start_day, ...rest } = settings;
+      const { error: retryError } = await supabase
+        .from('company_payroll_settings')
+        .upsert([rest]);
+      if (retryError) throw retryError;
+      return;
+    }
+    throw err;
+  }
 };

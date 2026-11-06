@@ -8,16 +8,20 @@ A professional-grade, industry-specific Employee Management System (EMS) designe
 
 🟢 **Active Development (Phase 5: Real-Time Security & Enterprise Scale)**
 
-The system has matured into a legally authoritative **Management Command Center** with automated statutory enforcement and real-time security synchronization.
+The system has matured into a legally authoritative **Management Command Center** with automated statutory enforcement, configurable payroll engines, and real-time security synchronization.
 
 Current focus:
 - 🛡️ **Security Matrix (11 Levels)**: Granular, 11-level hierarchy where Level 11 (System Administrator) is a hidden master account, and Level 10 down to 1 are fully customizable via the UI.
 - ⚡ **Real-Time Sync (The Pulse)**: Instant application-wide permission updates. Changing a "tick" in the master matrix immediately reflects in all active browser sessions without logout or refresh.
-- 🕒 **BCEA Payroll Engine**: Automated 5-hour rule (meal intervals), Sunday 1.5x, and Public Holiday 2.0x multipliers driven by monthly thresholds.
-- 📅 **Time & Attendance Hub**: Monthly summary matrix with **Real-Time Autosave**, **Live Clock Terminal sync**, and verification tracking.
-- 📈 **Advanced Reporting Suite**: 20+ auditable reports, including **Tardiness Analysis**, **Shift Variance**, and **Labor Cost vs Budget**.
-- 💵 **Payroll Export Engine**: One-click data generation for **Pastel Payroll**, **Sage**, and **Xero**.
-- 👤 **Pure Database Architecture**: 100% production-ready logic with no hardcoded bypasses. All profiles, permissions, and auth sessions are driven strictly by Supabase.
+- 🕒 **Configurable Payroll Calendar Cycle**: Full support for store-specific pay cycles (default: **21st to 20th**, or customizable from 1st to 28th). Cross-month cycles automatically synchronize across all timesheets, monthly registers, summaries, and exports.
+- ⏱️ **Monthly Overtime Engine (195-Hour Standard)**: Statutory overtime calculated strictly against total monthly hours (default norm of **195.0 hours**). Eliminates improper daily or weekly overtime deductions so that only hours accumulated above 195h in the pay cycle count as overtime.
+- 📅 **Dual-Mode Time & Attendance Register**:
+  - **Typing-Optimized Auto-Jump**: 4-digit auto-formatting (e.g., `0800` $\rightarrow$ `08:00`) with seamless auto-jumping directly between time fields.
+  - **Integrated Clock Pickers**: Interactive clock icon pickers positioned at the beginning of Start Time and at the end of End Time for mouse users, with sequential keyboard `Tab` navigation.
+- 📊 **Monthly Attendance Summary**: Real-time workforce summary that dynamically mirrors the active pay cycle date range, accurately displaying Regular Hours (up to 195h), Overtime (above 195h), total shifts, and verification statuses.
+- 📈 **Advanced Reporting Suite**: 20+ auditable reports, including **Tardiness Analysis**, **Shift Variance**, **Overtime Tracking**, and **Labor Cost vs. Budget**.
+- 💵 **Payroll Export Engine**: One-click data generation for **Pastel Payroll**, **Sage**, and **Xero**, pre-aligned with the store's active payroll cycle.
+- 👤 **Pure Database Architecture**: 100% production-ready logic with no hardcoded bypasses. All profiles, permissions, and auth sessions are driven strictly by Supabase with resilient local caching.
 
 ---
 
@@ -30,15 +34,19 @@ A professional, high-density permissions grid for enterprise-grade control.
 - **Live Reactivity**: Permissions are physically removed from the UI the moment they are unticked in the database.
 - **Granular Directory Visibility**: Specify exactly which levels of staff a user is allowed to view (e.g., Owner can see everyone, Waiter can see nobody).
 
-## 2. Time & Attendance (BCEA Automated)
+## 2. Time & Attendance Hub (BCEA & Pay Cycle Automated)
 Total synchronization between the tablet terminal and payroll records.
-- **Monthly Summary Matrix**: High-level view of monthly Regular Hrs, Overtime, total shifts, and compliance flags.
+- **Configurable Pay Cycles**: Set under **Settings > Payroll Engine**. Accommodates industry-standard 21st-to-20th cycles or calendar-month cycles with automatic cross-month date calculations.
+- **Monthly Summary Matrix**: Real-time aggregation of pay cycle Regular Hours, Overtime, auto-exits, and verification progress.
+- **Hybrid Input System**: Supports rapid numeric keypad entry with auto-colon formatting and automatic focus jumping, alongside clickable native time pickers for mouse users.
+- **Monthly 195h Overtime Protocol**: Overtime triggers only after accumulating standard monthly hours (configurable, 195h default).
+- **Automated Meal Intervals**: Automatic 5-hour rule break deduction with customizable threshold and duration.
 - **PIN-Based Terminal**: Dedicated 5-digit high-density clocking terminal with seconds-accurate tracking.
 - **Background Autosave**: Zero-work-loss interaction; data syncs to the cloud instantly.
-- **Premium Calculation**: Smart logic for Sunday 1.5x and Public Holiday 2.0x rates.
 
 ## 3. Labour & Statutory Reporting
 Audit-ready data generation for owners, HR, and legal counsel.
+- **Cycle-Aware Reports**: Reports automatically initialize to the store's active payroll cycle period.
 - **Labour Analytics**: Tardiness Analysis, Early Departure logs, and Total Hours Worked summaries.
 - **Variance Tracking**: Scheduled vs. Actual hour comparison and Labor Cost vs. Budget variance.
 - **CCMA Bundle**: AWOL audits, 36-month sick cycle exhaustion reports, and Public Holiday lieu ledgers.
@@ -60,10 +68,11 @@ Audit-ready data generation for owners, HR, and legal counsel.
 
 # 🗄️ Database Deployment
 
-The system uses a blueprint-compliant PostgreSQL schema. For new installations, use:
+The system uses a blueprint-compliant PostgreSQL schema. For new installations or upgrades, use:
 
-1. `supabase_schema.sql` (Core Tables)
-2. `setup/activate_sync_trigger.sql` (Permission Sync Pipe)
+1. `supabase_schema.sql` (Master Core Tables & Migrations)
+2. `setup/add_payroll_cycle_column.sql` (Payroll Cycle Start Day Migration)
+3. `setup/activate_sync_trigger.sql` (Permission Sync Pipe)
 
 > [!IMPORTANT]
 > Ensure **Realtime** is enabled on the `authority_levels` table in Supabase to support the instant permission "Pulse" functionality.
@@ -80,7 +89,7 @@ Restaurise replaces paper files with a legally "Store-Proof" platform. It is des
 
 ### Uploading to GitHub
 1. **Stage Changes**: `git add .`
-2. **Commit**: `git commit -m "feat: implement 11-level hierarchy, real-time matrix sync, and production auth cleanup"`
+2. **Commit**: `git commit -m "feat: add configurable payroll cycle, 195h monthly overtime rule, and dual clock pickers"`
 3. **Push to Remote**:
    ```bash
    git push origin main

@@ -33,8 +33,29 @@ export default function ChecklistRunner() {
       const { data: cl } = await supabase.from('checklists').select('*').eq('id', checklistId).single();
       const { data: its } = await supabase.from('checklist_items').select('*').eq('checklist_id', checklistId).order('sort_order');
 
+      const todayObj = new Date();
+      const todayDay = todayObj.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase().substring(0, 3);
+      const todayDateNum = todayObj.getDate();
+      const isTodayLastDayOfMonth = new Date(todayObj.getFullYear(), todayObj.getMonth(), todayObj.getDate() + 1).getDate() === 1;
+
+      const scheduledForToday = (its || []).filter(item => {
+        const mode = item.frequency_mode || 'Normal';
+
+        if (mode === 'Monthly') {
+          const monthDays = item.scheduled_month_days || [1];
+          const matchesDateNum = monthDays.includes(todayDateNum);
+          const matchesLD = monthDays.includes('LD') && isTodayLastDayOfMonth;
+          return matchesDateNum || matchesLD;
+        } else {
+          if (!item.scheduled_days || !Array.isArray(item.scheduled_days) || item.scheduled_days.length === 0) {
+            return true;
+          }
+          return item.scheduled_days.includes(todayDay);
+        }
+      });
+
       setChecklist(cl);
-      setItems(its || []);
+      setItems(scheduledForToday);
     } catch (err) {
       console.error(err);
     } finally {
@@ -65,7 +86,11 @@ export default function ChecklistRunner() {
       const searchParams = new URLSearchParams(window.location.search);
       const taskId = searchParams.get('taskId');
       if (taskId) {
-          await supabase.from('tasks').update({ status: 'Completed', completed_at: new Date().toISOString() }).eq('id', taskId);
+          await supabase.from('tasks').update({
+              status: 'Completed',
+              completed_at: new Date().toISOString(),
+              assigned_to_id: currentUser.id
+          }).eq('id', taskId);
       }
 
       localStorage.removeItem(`ros_checklist_run_${checklistId}`);

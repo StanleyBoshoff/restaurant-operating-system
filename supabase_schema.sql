@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS company_payroll_settings (
     holiday_multiplier DECIMAL(3,2) DEFAULT 2.0,
     auto_clock_out_hrs INTEGER DEFAULT 12,
     shift_end_cutoff_time TIME DEFAULT '23:59:59',
+    payroll_cycle_start_day INTEGER DEFAULT 21,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -433,7 +434,7 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employee_timesheets' AND column_name='approved_by') THEN ALTER TABLE employee_timesheets ADD COLUMN approved_by UUID REFERENCES employees(id); END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employee_timesheets' AND column_name='approved_at') THEN ALTER TABLE employee_timesheets ADD COLUMN approved_at TIMESTAMP WITH TIME ZONE; END IF;
 
-    -- PAYROLL SETTINGS: New Overtime Logic
+    -- PAYROLL SETTINGS: New Overtime Logic & Payroll Cycle
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='company_payroll_settings' AND column_name='monthly_overtime_threshold_hrs') THEN ALTER TABLE company_payroll_settings ADD COLUMN monthly_overtime_threshold_hrs DECIMAL(10,2) DEFAULT 195.0; END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='company_payroll_settings' AND column_name='enable_monthly_overtime') THEN ALTER TABLE company_payroll_settings ADD COLUMN enable_monthly_overtime BOOLEAN DEFAULT TRUE; END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='company_payroll_settings' AND column_name='enable_sunday_premium') THEN ALTER TABLE company_payroll_settings ADD COLUMN enable_sunday_premium BOOLEAN DEFAULT TRUE; END IF;
@@ -456,6 +457,7 @@ BEGIN
     -- CHECKLIST SUBMISSIONS: Add accountability columns
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='checklist_submissions' AND column_name='submitted_by_id') THEN ALTER TABLE checklist_submissions ADD COLUMN submitted_by_id UUID REFERENCES employees(id); END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='checklist_submissions' AND column_name='started_at') THEN ALTER TABLE checklist_submissions ADD COLUMN started_at TIMESTAMP WITH TIME ZONE; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='company_payroll_settings' AND column_name='payroll_cycle_start_day') THEN ALTER TABLE company_payroll_settings ADD COLUMN payroll_cycle_start_day INTEGER DEFAULT 21; END IF;
 END $$;
 
 -- Employee Payroll Adjustments (Tips, Tronc, Allowances, Deductions)

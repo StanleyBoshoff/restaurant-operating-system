@@ -1,7 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import SummaryCard from '../common/SummaryCard';
-import { ClipboardList, Plus, Save, Clock, ShieldCheck, Trash2, Edit2, Link, Zap, X } from 'lucide-react';
+import { ClipboardList, Plus, Save, Clock, ShieldCheck, Trash2, Edit2, Link, Zap, X, Calendar as CalendarIcon } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
+
+const ALL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const DAYS_CONFIG = [
+  { id: 'mon', label: 'M', name: 'Monday' },
+  { id: 'tue', label: 'T', name: 'Tuesday' },
+  { id: 'wed', label: 'W', name: 'Wednesday' },
+  { id: 'thu', label: 'T', name: 'Thursday' },
+  { id: 'fri', label: 'F', name: 'Friday' },
+  { id: 'sat', label: 'S', name: 'Saturday' },
+  { id: 'sun', label: 'S', name: 'Sunday' }
+];
 
 export default function TabTemplates() {
   const [templates, setTemplates] = useState([]);
@@ -16,7 +27,10 @@ export default function TabTemplates() {
     category: 'Kitchen',
     required_permission_id: 'can_perform_opening_checks',
     checklist_id: '',
-    deadline_time: '08:30:00',
+    deadline_time: '08:30',
+    frequency: 'Daily', // 'Daily', 'Weekly', 'Monthly'
+    recurring_days: ALL_DAYS, // Standard: All days ticked by default
+    day_of_month: 1,
     is_recurring: true
   });
 
@@ -52,10 +66,10 @@ export default function TabTemplates() {
   const handleSave = async (e) => {
     e.preventDefault();
     try {
-      // Ensure we don't send empty strings for UUIDs
       const dataToSave = {
           ...formData,
-          checklist_id: formData.checklist_id || null
+          checklist_id: formData.checklist_id || null,
+          deadline_time: formData.deadline_time.length === 5 ? `${formData.deadline_time}:00` : formData.deadline_time
       };
 
       const { error } = await supabase.from('tasks').insert([dataToSave]);
@@ -69,13 +83,27 @@ export default function TabTemplates() {
         category: 'Kitchen',
         required_permission_id: 'can_perform_opening_checks',
         checklist_id: '',
-        deadline_time: '08:30:00',
+        deadline_time: '08:30',
+        frequency: 'Daily',
+        recurring_days: ALL_DAYS,
+        day_of_month: 1,
         is_recurring: true
       });
       fetchData();
     } catch (err) {
       alert("Error creating template: " + err.message);
     }
+  };
+
+  const toggleDay = (dayId) => {
+    const current = formData.recurring_days || ALL_DAYS;
+    let updated;
+    if (current.includes(dayId)) {
+      updated = current.filter(d => d !== dayId);
+    } else {
+      updated = [...current, dayId];
+    }
+    setFormData({ ...formData, recurring_days: updated });
   };
 
   const handleDelete = async (id) => {
@@ -107,7 +135,7 @@ export default function TabTemplates() {
       </div>
 
       {showForm && (
-        <SummaryCard title="Design New Operation" icon={ClipboardList}>
+        <SummaryCard title="Design New Operation & Schedule" icon={ClipboardList}>
            <form onSubmit={handleSave} className="space-y-6 py-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                  <div className="space-y-5">
@@ -124,8 +152,75 @@ export default function TabTemplates() {
                        <textarea
                          placeholder="Explain what needs to be achieved during this operation..."
                          value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}
-                         className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium h-32 focus:border-slate-900 outline-none transition-all shadow-sm"
+                         className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-medium h-24 focus:border-slate-900 outline-none transition-all shadow-sm"
                        />
+                    </div>
+
+                    {/* FREQUENCY & SCHEDULE SELECTOR */}
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+                       <div>
+                          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Schedule Frequency</label>
+                          <div className="grid grid-cols-3 gap-2">
+                             {['Daily', 'Weekly', 'Monthly'].map(f => (
+                                <button
+                                  key={f}
+                                  type="button"
+                                  onClick={() => setFormData({ ...formData, frequency: f })}
+                                  className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                                     formData.frequency === f
+                                     ? 'bg-slate-900 text-white border-slate-900 shadow-md'
+                                     : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                  }`}
+                                >
+                                   {f}
+                                </button>
+                             ))}
+                          </div>
+                       </div>
+
+                       {/* Day of Week Selector for Daily / Weekly */}
+                       {(formData.frequency === 'Daily' || formData.frequency === 'Weekly') && (
+                          <div>
+                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Active Schedule Days:</span>
+                             <div className="flex items-center gap-1.5">
+                                {DAYS_CONFIG.map(day => {
+                                   const isSelected = (formData.recurring_days || ALL_DAYS).includes(day.id);
+                                   return (
+                                      <button
+                                        key={day.id}
+                                        type="button"
+                                        onClick={() => toggleDay(day.id)}
+                                        className={`w-8 h-8 rounded-xl text-[9px] font-black uppercase transition-all ${
+                                           isSelected
+                                           ? 'bg-emerald-600 text-white shadow-xs'
+                                           : 'bg-white text-slate-300 border border-slate-200 hover:border-slate-300'
+                                        }`}
+                                        title={day.name}
+                                      >
+                                         {day.label}
+                                      </button>
+                                   );
+                                })}
+                             </div>
+                             <p className="text-[8px] font-bold text-slate-400 mt-2 uppercase tracking-tight italic">Default: All 7 days selected to avoid missing scheduled checks.</p>
+                          </div>
+                       )}
+
+                       {/* Day of Month Selector for Monthly */}
+                       {formData.frequency === 'Monthly' && (
+                          <div>
+                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Day of Month</label>
+                             <select
+                               value={formData.day_of_month}
+                               onChange={e => setFormData({ ...formData, day_of_month: parseInt(e.target.value, 10) })}
+                               className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-black"
+                             >
+                                <option value={1}>1st of every month</option>
+                                <option value={15}>15th of every month</option>
+                                <option value={28}>28th of every month</option>
+                             </select>
+                          </div>
+                       )}
                     </div>
                  </div>
 
@@ -156,7 +251,7 @@ export default function TabTemplates() {
                        <p className="text-[8px] text-slate-400 mt-2 font-bold uppercase tracking-tight ml-1 italic">Go to 'Protocol Designer' to create checklists first.</p>
                     </div>
                     <div>
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Daily Deadline</label>
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Daily Deadline Time</label>
                        <input
                          type="time" required
                          value={formData.deadline_time} onChange={e => setFormData({...formData, deadline_time: e.target.value})}
@@ -202,7 +297,10 @@ export default function TabTemplates() {
               <div className="space-y-4">
                  <div className="flex flex-wrap gap-2">
                     <span className="px-3 py-1.5 bg-slate-900 text-white text-[9px] font-black rounded-xl uppercase flex items-center gap-1.5 shadow-lg shadow-slate-900/10">
-                       <Clock size={12} className="text-yellow-500" /> {tmp.deadline_time.substring(0,5)}
+                       <Clock size={12} className="text-yellow-500" /> {tmp.deadline_time ? tmp.deadline_time.substring(0,5) : '--:--'}
+                    </span>
+                    <span className="px-3 py-1.5 bg-slate-100 text-slate-700 text-[9px] font-black rounded-xl uppercase flex items-center gap-1.5 border border-slate-200">
+                       <CalendarIcon size={12} /> {tmp.frequency || 'Daily'}
                     </span>
                     {tmp.checklists && (
                       <span className="px-3 py-1.5 bg-blue-50 text-blue-600 text-[9px] font-black rounded-xl uppercase flex items-center gap-1.5 border border-blue-100">
@@ -213,7 +311,7 @@ export default function TabTemplates() {
                  <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
                     <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Authority:</p>
                     <span className="text-[9px] font-black text-emerald-600 uppercase">
-                       {tmp.required_permission_id.replace('can_perform_', '').replace('_checks', '').replace(/_/g, ' ')}
+                       {tmp.required_permission_id ? tmp.required_permission_id.replace('can_perform_', '').replace('_checks', '').replace(/_/g, ' ') : 'General'}
                     </span>
                  </div>
               </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import SummaryCard from '../common/SummaryCard';
 import { FileOutput, Download, FileText, Share2, Table, Calendar } from 'lucide-react';
 import { getPayrollExportData } from '../../utils/reportingService';
+import { getPayrollSettings, getPayrollCycleRange } from '../../utils/timesheetService';
 
 export default function TabPayrollExport() {
   const [data, setData] = useState([]);
@@ -10,6 +11,23 @@ export default function TabPayrollExport() {
     start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
   });
+
+  useEffect(() => {
+    async function initCycleRange() {
+      try {
+        const settings = await getPayrollSettings();
+        const cycleStartDay = settings?.payroll_cycle_start_day || 21;
+        const range = getPayrollCycleRange(new Date(), cycleStartDay);
+        setDateRange({
+          start: range.startDateStr,
+          end: range.endDateStr
+        });
+      } catch (err) {
+        console.error("Failed to initialize pay cycle range:", err);
+      }
+    }
+    initCycleRange();
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -43,12 +61,19 @@ export default function TabPayrollExport() {
     document.body.removeChild(link);
   };
 
+  const handleSetCurrentCycle = async () => {
+    const settings = await getPayrollSettings();
+    const cycleStartDay = settings?.payroll_cycle_start_day || 21;
+    const range = getPayrollCycleRange(new Date(), cycleStartDay);
+    setDateRange({ start: range.startDateStr, end: range.endDateStr });
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
 
       {/* Selection & Export Bar */}
       <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-slate-900 p-6 rounded-3xl shadow-xl">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
            <div className="flex flex-col">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Start Period</label>
               <input
@@ -67,6 +92,13 @@ export default function TabPayrollExport() {
                 className="bg-slate-800 border border-slate-700 text-white text-xs font-bold rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-yellow-500"
               />
            </div>
+           <button
+             type="button"
+             onClick={handleSetCurrentCycle}
+             className="self-end px-3 py-2 bg-slate-800 hover:bg-slate-700 text-yellow-500 rounded-lg text-[10px] font-bold border border-slate-700 transition-all active:scale-95"
+           >
+             Current Pay Cycle
+           </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

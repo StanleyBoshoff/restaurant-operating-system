@@ -7,6 +7,7 @@ import {
   getTardinessAnalysisReport, getEarlyDepartureReport, getApprovalStatusReport,
   getTotalHoursSummary, getAbsenteeismReport, getShiftVarianceReport, getLaborCostVarianceReport
 } from '../../utils/reportingService';
+import { getPayrollSettings, getPayrollCycleRange } from '../../utils/timesheetService';
 
 const REPORT_LIST = [
   { id: 'daily_logs', title: 'Daily Clock-In / Clock-Out Log', desc: 'Detailed chronological log of all raw clocking events.', icon: Clock, color: 'blue' },
@@ -34,6 +35,23 @@ export default function TabLabour() {
   });
 
   const departments = ['All', 'FOH', 'BOH', 'Manager'];
+
+  useEffect(() => {
+    async function initCycleRange() {
+      try {
+        const settings = await getPayrollSettings();
+        const cycleStartDay = settings?.payroll_cycle_start_day || 21;
+        const range = getPayrollCycleRange(new Date(), cycleStartDay);
+        setDateRange({
+          start: range.startDateStr,
+          end: range.endDateStr
+        });
+      } catch (err) {
+        console.error("Failed to load cycle for reports:", err);
+      }
+    }
+    initCycleRange();
+  }, []);
 
   useEffect(() => {
     async function fetchEmployees() {

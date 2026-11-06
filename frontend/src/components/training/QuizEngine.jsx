@@ -20,11 +20,12 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
       return arr;
     };
 
-    // 1. Shuffle questions order
-    const shuffledQuestions = shuffle(quiz.questions).map(q => {
-      // Support both creator format (correctAnswer, incorrect1/2/3) and pre-formatted format
+    // 1. Shuffle questions order and assign stable unique IDs for tracking answers
+    const shuffledQuestions = shuffle(quiz.questions).map((q, qIdx) => {
       const correctText = q.correctAnswerText || q.correctAnswer;
       const incorrectTexts = q.incorrectAnswers || [q.incorrect1, q.incorrect2, q.incorrect3].filter(Boolean);
+
+      const stableId = q.id || `q-${qIdx}`;
 
       if (correctText !== undefined && correctText !== null) {
         const allOpts = [
@@ -41,14 +42,13 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
         const correctOpt = optionsWithIds.find(o => o.isCorrect);
 
         return {
-          id: q.id || Math.random(),
+          id: stableId,
           question: q.question,
           hint: q.hint,
           options: optionsWithIds,
           correctOptionId: correctOpt ? correctOpt.id : 'A'
         };
       } else {
-        // Default mock quiz or pre-formatted quiz options
         const shuffledOpts = shuffle(q.options || []);
         const optionsWithIds = shuffledOpts.map((opt, idx) => ({
           ...opt,
@@ -57,6 +57,7 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
         const correctOpt = optionsWithIds.find(o => o.id === q.correctOptionId || o.isCorrect);
         return {
           ...q,
+          id: stableId,
           options: optionsWithIds,
           correctOptionId: correctOpt ? correctOpt.id : q.correctOptionId
         };
@@ -82,8 +83,21 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
     if (currentIndex < randomizedQuestions.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setShowHint(false);
-    } else if (!isReview) {
-      onComplete(userAnswers);
+    } else {
+      // End of quiz or end of review
+      if (isReview) {
+        onComplete(userAnswers);
+      } else {
+        // Calculate score precisely using randomized questions and answers
+        let correctCount = 0;
+        randomizedQuestions.forEach(q => {
+          if (userAnswers[q.id] === q.correctOptionId) {
+            correctCount++;
+          }
+        });
+        const finalScore = randomizedQuestions.length > 0 ? Math.round((correctCount / randomizedQuestions.length) * 100) : 100;
+        onComplete(userAnswers, finalScore);
+      }
     }
   };
 

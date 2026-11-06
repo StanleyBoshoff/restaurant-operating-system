@@ -1,14 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, HelpCircle, CheckCircle2, XCircle, Info } from 'lucide-react';
 
 export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUserAnswers = {} }) {
-  const [randomizedQuestions, setRandomizedQuestions] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState(initialUserAnswers);
-  const [showHint, setShowHint] = useState(false);
-
-  useEffect(() => {
-    if (!quiz || !quiz.questions) return;
+  // Randomize questions and lock them in ONCE on mount so order/options never shift mid-quiz or during review
+  const [randomizedQuestions] = useState(() => {
+    if (!quiz || !quiz.questions) return [];
 
     // Fisher-Yates shuffle helper
     const shuffle = (array) => {
@@ -20,11 +16,9 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
       return arr;
     };
 
-    // 1. Shuffle questions order and assign stable unique IDs for tracking answers
-    const shuffledQuestions = shuffle(quiz.questions).map((q, qIdx) => {
+    return shuffle(quiz.questions).map((q, qIdx) => {
       const correctText = q.correctAnswerText || q.correctAnswer;
       const incorrectTexts = q.incorrectAnswers || [q.incorrect1, q.incorrect2, q.incorrect3].filter(Boolean);
-
       const stableId = q.id || `q-${qIdx}`;
 
       if (correctText !== undefined && correctText !== null) {
@@ -63,9 +57,11 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
         };
       }
     });
+  });
 
-    setRandomizedQuestions(shuffledQuestions);
-  }, [quiz]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [userAnswers, setUserAnswers] = useState(initialUserAnswers);
+  const [showHint, setShowHint] = useState(false);
 
   if (randomizedQuestions.length === 0) {
     return <div className="py-12 text-center italic text-slate-400">Loading assessment questions...</div>;
@@ -84,11 +80,10 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
       setCurrentIndex(currentIndex + 1);
       setShowHint(false);
     } else {
-      // End of quiz or end of review
       if (isReview) {
         onComplete(userAnswers);
       } else {
-        // Calculate score precisely using randomized questions and answers
+        // Calculate score precisely using locked-in randomized questions
         let correctCount = 0;
         randomizedQuestions.forEach(q => {
           if (userAnswers[q.id] === q.correctOptionId) {

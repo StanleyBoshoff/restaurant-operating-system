@@ -465,6 +465,9 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='training_courses' AND column_name='difficulty') THEN ALTER TABLE training_courses ADD COLUMN difficulty TEXT; END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='training_courses' AND column_name='target_roles') THEN ALTER TABLE training_courses ADD COLUMN target_roles JSONB DEFAULT '[]'; END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='training_courses' AND column_name='steps') THEN ALTER TABLE training_courses ADD COLUMN steps JSONB DEFAULT '[]'; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='training_courses' AND column_name='youtubeId') THEN ALTER TABLE training_courses ADD COLUMN youtubeId TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='training_courses' AND column_name='flashcards') THEN ALTER TABLE training_courses ADD COLUMN flashcards JSONB DEFAULT '[]'; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='training_courses' AND column_name='quiz') THEN ALTER TABLE training_courses ADD COLUMN quiz JSONB DEFAULT '{}'; END IF;
 END $$;
 
 -- Employee Payroll Adjustments (Tips, Tronc, Allowances, Deductions)

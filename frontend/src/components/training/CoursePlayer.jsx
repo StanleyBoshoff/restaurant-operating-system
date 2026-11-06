@@ -23,16 +23,18 @@ export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
     const questionsList = currentStep.questions || course.quiz?.questions || [];
     let correctCount = 0;
     questionsList.forEach(q => {
-      if (answers[q.id] === q.correctOptionId || answers[q.id] === 'A') correctCount++;
+      if (answers[q.id] === q.correctOptionId) correctCount++;
     });
     const finalScore = questionsList.length > 0 ? Math.round((correctCount / questionsList.length) * 100) : 100;
     setScore(finalScore);
 
-    if (finalScore >= 80) {
+    // 90% is the pass threshold as requested
+    if (finalScore >= 90) {
       onProgressUpdate(100);
       setIsCompleted(true);
     } else {
       onProgressUpdate(75);
+      setIsCompleted(true); // Show results screen with score & pass/fail status
     }
   };
 
@@ -59,19 +61,21 @@ export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
 
   const renderStepContent = () => {
     if (isCompleted) {
+      const passed = score >= 90;
       return (
         <div className="flex flex-col items-center justify-center py-12 px-4 space-y-8 text-center w-full max-w-lg mx-auto">
-          <div className={`w-28 h-28 rounded-full border-8 flex items-center justify-center text-3xl font-black ${
-            score >= 80 ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : 'border-yellow-500 text-yellow-600 bg-yellow-50'
+          <div className={`w-28 h-28 rounded-full border-8 flex items-center justify-center text-2xl font-black ${
+            passed ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : 'border-rose-500 text-rose-600 bg-rose-50'
           }`}>
-            {score > 0 ? `${score}%` : '✓'}
+            {score}%
           </div>
           <div className="space-y-2">
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight">
-              {score >= 80 ? 'Masterclass Completed!' : 'Course Finished!'}
+              {passed ? 'Masterclass Passed! 🎉' : 'Assessment Failed ❌'}
             </h2>
-            <p className="text-xs sm:text-sm text-slate-500 max-w-xs mx-auto font-medium">
-              You have successfully completed all modules for {course.title}.
+            <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto font-medium leading-relaxed">
+              You scored <span className="font-bold text-slate-900">{score}%</span> on {course.title}.
+              {passed ? ' Outstanding work!' : ' Required pass threshold is 90%. Please review and try again.'}
             </p>
           </div>
           <div className="flex flex-col gap-3 w-full">
@@ -80,6 +84,7 @@ export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
                 setIsCompleted(false);
                 setCurrentStepIndex(0);
                 setUserAnswers({});
+                setScore(0);
               }}
               className="w-full px-6 py-3.5 bg-slate-900 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
             >

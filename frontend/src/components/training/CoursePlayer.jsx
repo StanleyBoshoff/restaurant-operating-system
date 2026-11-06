@@ -6,7 +6,7 @@ import QuizEngine from './QuizEngine';
 export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
   // Build steps list: use course.stepsList if available, or construct standard steps
   const rawSteps = course.stepsList || course.steps?.stepsList || [
-    { type: 'video', title: 'Video Lesson', videoUrl: `https://www.youtube.com/watch?v=${course.youtubeId || 'dQw4w9WgXcQ'}`, description: course.description || '' },
+    { type: 'video', title: 'Video Lesson', videoUrl: `https://www.youtube.com/embed/${course.youtubeId || 'dQw4w9WgXcQ'}`, description: course.description || '' },
     { type: 'flashcards', title: 'Study Session', cards: course.flashcards || [] },
     { type: 'quiz', title: 'Assessment', questions: course.quiz?.questions || [] }
   ];
@@ -15,6 +15,7 @@ export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
   const [userAnswers, setUserAnswers] = useState({});
   const [score, setScore] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [isReviewing, setIsReviewing] = useState(false);
 
   const currentStep = rawSteps[currentStepIndex] || rawSteps[0];
 
@@ -60,6 +61,29 @@ export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
   };
 
   const renderStepContent = () => {
+    if (isReviewing) {
+      const quizObj = currentStep.questions ? { questions: currentStep.questions } : course.quiz || { questions: [] };
+      return (
+        <div className="space-y-6 w-full max-w-2xl mx-auto p-4 sm:p-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+             <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Answer Review Mode</h2>
+             <button
+               onClick={() => setIsReviewing(false)}
+               className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer"
+             >
+               Back to Results
+             </button>
+          </div>
+          <QuizEngine
+            quiz={quizObj}
+            initialUserAnswers={userAnswers}
+            mode="review"
+            onComplete={() => setIsReviewing(false)}
+          />
+        </div>
+      );
+    }
+
     if (isCompleted) {
       const passed = score >= 90;
       return (
@@ -75,18 +99,25 @@ export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto font-medium leading-relaxed">
               You scored <span className="font-bold text-slate-900">{score}%</span> on {course.title}.
-              {passed ? ' Outstanding work!' : ' Required pass threshold is 90%. Please review and try again.'}
+              {passed ? ' Outstanding work!' : ' Required pass threshold is 90%. Please review your answers and try again.'}
             </p>
           </div>
           <div className="flex flex-col gap-3 w-full">
             <button
+              onClick={() => setIsReviewing(true)}
+              className="w-full px-6 py-3.5 bg-slate-900 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <BookOpen size={16} /> Review Answers
+            </button>
+            <button
               onClick={() => {
                 setIsCompleted(false);
+                setIsReviewing(false);
                 setCurrentStepIndex(0);
                 setUserAnswers({});
                 setScore(0);
               }}
-              className="w-full px-6 py-3.5 bg-slate-900 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full px-6 py-3.5 bg-yellow-500 text-slate-950 font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-yellow-400 transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
             >
               <RotateCcw size={16} /> Retake Course
             </button>
@@ -185,7 +216,7 @@ export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
             <div className="flex items-center gap-2 text-[9px] font-black tracking-widest text-slate-400 uppercase mt-0.5 overflow-x-auto">
               {rawSteps.map((s, idx) => (
                 <React.Fragment key={idx}>
-                  <span className={currentStepIndex === idx && !isCompleted ? 'text-yellow-600 font-black' : ''}>
+                  <span className={currentStepIndex === idx && !isCompleted && !isReviewing ? 'text-yellow-600 font-black' : ''}>
                     {s.title || s.type.toUpperCase()}
                   </span>
                   {idx < rawSteps.length - 1 && <span>•</span>}

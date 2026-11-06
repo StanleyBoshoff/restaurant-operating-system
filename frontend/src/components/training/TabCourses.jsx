@@ -1,20 +1,32 @@
 import React, { useState } from 'react';
 import SummaryCard from '../common/SummaryCard';
-import { BookOpen, Clock, Award, Star, Search, Filter, Play, CheckCircle } from 'lucide-react';
+import { BookOpen, Clock, Award, Star, Search, Play, CheckCircle } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
-
-const COURSES = [
-  { id: 1, title: 'BCEA Labor Law Basics', cat: 'Compliance', duration: '45 mins', difficulty: 'Beginner', rating: 4.8, status: 'Mandatory', progress: 100 },
-  { id: 2, title: 'HACCP Food Safety Standards', cat: 'Kitchen', duration: '120 mins', difficulty: 'Advanced', rating: 4.9, status: 'Mandatory', progress: 85 },
-  { id: 3, title: 'Upselling Techniques for FOH', cat: 'Service', duration: '60 mins', difficulty: 'Intermediate', rating: 4.5, status: 'Elective', progress: 0 },
-  { id: 4, title: 'POS Advanced Troubleshooting', cat: 'Operations', duration: '30 mins', difficulty: 'Intermediate', rating: 4.2, status: 'Elective', progress: 15 },
-  { id: 5, title: 'Chemical Handling & Safety', cat: 'Cleaning', duration: '40 mins', difficulty: 'Beginner', rating: 4.7, status: 'Mandatory', progress: 0 },
-  { id: 6, title: 'Cocktail Craft & Mixology', cat: 'Bar', duration: '180 mins', difficulty: 'Expert', rating: 5.0, status: 'Elective', progress: 0 },
-];
+import CoursePlayer from './CoursePlayer';
+import { waiterBasicsCourse } from './mockQuizData';
 
 export default function TabCourses() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCat, setSelectedCat] = useState('All');
+  const [activeCourse, setActiveCourse] = useState(null);
+
+  // Manage course progress locally for now
+  const [courseProgress, setCourseProgress] = useState({
+    1: 0 // Waiter Basics ID
+  });
+
+  const COURSES = [
+    {
+      ...waiterBasicsCourse,
+      id: 1,
+      cat: 'Service',
+      duration: '45 mins',
+      difficulty: 'Beginner',
+      rating: 5.0,
+      status: 'Mandatory',
+      progress: courseProgress[1] || 0
+    }
+  ];
 
   const categories = ['All', ...new Set(COURSES.map(c => c.cat))];
 
@@ -22,6 +34,13 @@ export default function TabCourses() {
     (selectedCat === 'All' || c.cat === selectedCat) &&
     c.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleProgressUpdate = (courseId, newProgress) => {
+    setCourseProgress(prev => ({
+      ...prev,
+      [courseId]: Math.max(prev[courseId] || 0, newProgress)
+    }));
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -85,7 +104,7 @@ export default function TabCourses() {
 
                <div className="space-y-1">
                   <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-tighter">
-                    <span className="text-slate-500">Curriculum Progress</span>
+                    <span className="text-slate-500 text-[8px] tracking-[0.1em]">PROGRESS</span>
                     <span className="text-slate-900">{course.progress}%</span>
                   </div>
                   <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -96,20 +115,22 @@ export default function TabCourses() {
                   </div>
                </div>
 
-               <button className={`w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-all active:scale-[0.97] ${
+               <button
+                onClick={() => setActiveCourse(course)}
+                className={`w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-all active:scale-[0.97] ${
                  course.progress === 100
-                 ? 'bg-green-50 text-green-700 border border-green-100'
+                 ? 'bg-green-50 text-green-700 border border-green-100 shadow-3xs'
                  : 'bg-slate-900 text-white hover:bg-slate-800 shadow-sm'
                }`}>
                  {course.progress === 100 ? (
                    <>
-                     <CheckCircle size={14} />
+                     <CheckCircle size={14} className="text-green-600" />
                      Certified Complete
                    </>
                  ) : (
                    <>
                      <Play size={14} />
-                     {course.progress > 0 ? 'Resume Course' : 'Enroll Now'}
+                     {course.progress > 0 ? 'Resume Course' : 'Start Course'}
                    </>
                  )}
                </button>
@@ -123,27 +144,37 @@ export default function TabCourses() {
         ))}
       </div>
 
-      {/* Knowledge Resources Summary */}
+      {/* Summary Stats */}
       <SummaryCard title="Curriculum Insights" icon={BookOpen}>
          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 py-2">
             <div>
                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Active Enrollments</p>
-               <h4 className="text-2xl font-black text-slate-900">12</h4>
+               <h4 className="text-2xl font-black text-slate-900">{COURSES.length}</h4>
             </div>
             <div>
                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Completed Units</p>
-               <h4 className="text-2xl font-black text-green-600">84</h4>
+               <h4 className="text-2xl font-black text-green-600">
+                 {COURSES.filter(c => c.progress === 100).length}
+               </h4>
             </div>
             <div>
                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Mandatory Overdue</p>
-               <h4 className="text-2xl font-black text-rose-600">03</h4>
+               <h4 className="text-2xl font-black text-rose-600">0</h4>
             </div>
             <div>
                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Training Hours</p>
-               <h4 className="text-2xl font-black text-slate-900">142h</h4>
+               <h4 className="text-2xl font-black text-slate-900">0h</h4>
             </div>
          </div>
       </SummaryCard>
+
+      {activeCourse && (
+        <CoursePlayer
+          course={activeCourse}
+          onClose={() => setActiveCourse(null)}
+          onProgressUpdate={(percentage) => handleProgressUpdate(activeCourse.id, percentage)}
+        />
+      )}
     </div>
   );
 }

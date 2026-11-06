@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SummaryCard from '../common/SummaryCard';
 import { CheckSquare, Play, CheckCircle, Clock, AlertCircle, RefreshCw, UserPlus, Zap } from 'lucide-react';
-import { getTasksToday, updateTaskStatus, getAutoAssignee } from '../../utils/taskService';
+import { getTasksToday, updateTaskStatus } from '../../utils/taskService';
 import StatusBadge from '../common/StatusBadge';
 import { useAuth } from '../../context/AuthContext';
+import { canDo } from '../../utils/permissionService';
 
 export default function TabOpen() {
   const { user: currentUser } = useAuth();
@@ -30,9 +31,14 @@ export default function TabOpen() {
 
   const handleStartTask = async (task) => {
     try {
-      await updateTaskStatus(task.id, 'In Progress');
+      // 1. Verify Authority
+      const hasAuthority = canDo(currentUser, task.required_permission_id);
+      if (!hasAuthority) return alert("You do not have the required authority for this operation.");
 
-      // 🚀 Direct Navigation: If there's a linked checklist, open it instantly
+      // 2. Start Task & Assign to current user
+      await updateTaskStatus(task.id, 'In Progress', { assigned_to_id: currentUser.id });
+
+      // 3. Direct Navigation: If there's a linked checklist, open it instantly
       if (task.checklist_id) {
           navigate(`/checklists/run/${task.checklist_id}?taskId=${task.id}`);
       } else {
@@ -56,18 +62,6 @@ export default function TabOpen() {
     } catch (err) {
       alert("Failed to complete task: " + err.message);
     }
-  };
-
-  const handleAutoAssign = async (task) => {
-     try {
-        const assignee = await getAutoAssignee(task.required_permission_id);
-        if (!assignee) return alert("No qualified staff currently clocked in.");
-
-        await updateTaskStatus(task.id, 'Pending', { assigned_to_id: assignee.id });
-        fetchTasks();
-     } catch (err) {
-        alert("Assignment failed: " + err.message);
-     }
   };
 
   if (loading) return <div className="py-20 text-center italic text-slate-400">Syncing active floor tasks...</div>;
@@ -121,26 +115,19 @@ export default function TabOpen() {
                  </div>
 
                  <div className="mt-8 pt-6 border-t border-slate-100 space-y-4">
-                    <div className="flex items-center justify-between">
-                       <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 bg-slate-50 rounded-lg flex items-center justify-center font-black text-[9px] text-slate-400 border border-slate-100">
-                             {task.employees ? task.employees.first_name[0] : '?'}
-                          </div>
-                          <div>
-                             <p className="text-[10px] font-black text-slate-700 leading-none mb-0.5">{task.employees ? task.employees.first_name : 'Unassigned'}</p>
-                             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{task.employees?.role || 'Staff Slot'}</p>
+                    {task.status !== 'Pending' && (
+                       <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                             <div className="w-7 h-7 bg-slate-50 rounded-lg flex items-center justify-center font-black text-[9px] text-slate-400 border border-slate-100">
+                                {task.employees ? task.employees.first_name[0] : '?'}
+                             </div>
+                             <div>
+                                <p className="text-[10px] font-black text-slate-700 leading-none mb-0.5">{task.employees ? task.employees.first_name : 'Unassigned'}</p>
+                                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{task.employees?.role || 'Staff Slot'}</p>
+                             </div>
                           </div>
                        </div>
-                       {!task.assigned_to_id && (
-                          <button
-                            onClick={() => handleAutoAssign(task)}
-                            className="p-2 bg-yellow-50 text-yellow-600 rounded-xl hover:bg-yellow-100 transition-all border border-yellow-100"
-                            title="Auto-Assign to Lowest Qualified"
-                          >
-                             <UserPlus size={16} />
-                          </button>
-                       )}
-                    </div>
+                    )}
 
                     <div className="grid grid-cols-1 gap-2">
                        {task.status === 'Pending' ? (

@@ -5,6 +5,7 @@ import StatusBadge from '../common/StatusBadge';
 import { getChecklistItems, submitChecklist, getAssignedStaffForChecklist } from '../../utils/checklistService';
 import ChecklistItemMobile from './ChecklistItemMobile';
 import CommentModal from './CommentModal';
+import NotificationModal from '../common/NotificationModal';
 import { useAuth } from '../../context/AuthContext';
 
 export default function TabClosing() {
@@ -16,6 +17,19 @@ export default function TabClosing() {
   const [loading, setLoading] = useState(true);
   const [startedAt] = useState(new Date().toISOString());
   const [commentTargetId, setCommentTargetId] = useState(null);
+
+  // Custom Notification Modal
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: 'success',
+    title: '',
+    message: '',
+    onConfirm: null
+  });
+
+  const notify = (title, message, type = 'warning', onConfirm = null) => {
+    setModalConfig({ isOpen: true, type, title, message, onConfirm });
+  };
 
   useEffect(() => {
     fetchItems();
@@ -52,12 +66,16 @@ export default function TabClosing() {
   };
 
   const handleSave = async () => {
-    if (!currentUser) return alert("You must be logged in to sign off.");
+    if (!currentUser) return notify("Authentication Required", "You must be logged in to sign off.", 'warning');
 
     for (const item of items) {
        const val = submissionData[item.id];
-       if (item.is_mandatory && !val?.status) return alert(`Mandatory Missing: ${item.task_description}`);
-       if (val?.status === 'cross' && !val?.comment) return alert(`Comment Required for issues.`);
+       if (item.is_mandatory && !val?.status) {
+         return notify("Mandatory Point Missing", `Please complete mandatory task: "${item.task_description}"`, 'warning');
+       }
+       if (val?.status === 'cross' && !val?.comment) {
+         return notify("Comment Required", `Please explain the issue for: "${item.task_description}"`, 'warning');
+       }
     }
 
     try {
@@ -66,9 +84,9 @@ export default function TabClosing() {
       setTimeout(() => setIsSaved(false), 3000);
       localStorage.removeItem('ros_closing_checklist_v2_draft');
       setSubmissionData({});
-      alert("Closing Routine finalized and archived.");
+      notify("Closing Routine Checklist", "Closing Routine Checklist finalized and archived successfully.", 'success');
     } catch (err) {
-      alert("Submission failed: " + err.message);
+      notify("Submission Error", "Failed to archive submission: " + err.message, 'error');
     }
   };
 
@@ -78,7 +96,7 @@ export default function TabClosing() {
 
   const categories = [...new Set(items.map(i => i.category || 'General'))];
 
-  if (loading) return <div className="py-20 text-center italic text-slate-400 animate-pulse">Syncing closing protocols...</div>;
+  if (loading) return <div className="py-20 text-center italic text-slate-400 animate-pulse">Syncing Closing Routine Checklist...</div>;
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
@@ -116,19 +134,19 @@ export default function TabClosing() {
            </p>
         </SummaryCard>
 
-        <SummaryCard title="Routine Execution" icon={Save}>
+        <SummaryCard title="Checksheet Sign-Off" icon={Save}>
            <div className="space-y-2">
               <button
                 onClick={handleSave}
                 disabled={progress < 10}
-                className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${
+                className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl cursor-pointer ${
                     progress === 100
                     ? 'bg-rose-600 text-white hover:bg-rose-700'
                     : 'bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-30'
                 }`}
               >
                  <CheckCircle size={18} />
-                 <span className="text-[10px] font-black uppercase tracking-widest">Finalize Lockdown</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest">Finalize Closing Checklist</span>
               </button>
            </div>
         </SummaryCard>
@@ -163,6 +181,15 @@ export default function TabClosing() {
         title={items.find(i => i.id === commentTargetId)?.task_description}
         initialValue={submissionData[commentTargetId]?.comment}
         onSave={(text) => handleItemChange(commentTargetId, { ...submissionData[commentTargetId], comment: text })}
+      />
+
+      <NotificationModal
+        isOpen={modalConfig.isOpen}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+        onConfirm={modalConfig.onConfirm}
       />
     </div>
   );

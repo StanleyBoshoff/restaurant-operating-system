@@ -127,3 +127,21 @@ export const getAutoAssignee = async (permissionId) => {
   qualified.sort((a, b) => a.roles.authority_level - b.roles.authority_level);
   return qualified[0];
 };
+
+/**
+ * Fetches all completed tasks for the archive.
+ */
+export const getArchivedTasks = async () => {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select(`
+      *,
+      employees!tasks_assigned_to_id_fkey (first_name, last_name, role),
+      checklists (name)
+    `)
+    .eq('status', 'Completed')
+    .order('completed_at', { ascending: false });
+
+  if (error) throw error;
+  return data;
+};

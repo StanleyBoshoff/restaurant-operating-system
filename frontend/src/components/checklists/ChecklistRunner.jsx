@@ -5,6 +5,7 @@ import SummaryCard from '../common/SummaryCard';
 import { Timer, UserCheck, Save, CheckCircle, ArrowLeft, ShieldAlert } from 'lucide-react';
 import ChecklistItemMobile from './ChecklistItemMobile';
 import CommentModal from './CommentModal';
+import NotificationModal from '../common/NotificationModal';
 import { useAuth } from '../../context/AuthContext';
 import { submitChecklist } from '../../utils/checklistService';
 
@@ -19,6 +20,25 @@ export default function ChecklistRunner() {
   const [loading, setLoading] = useState(true);
   const [startedAt] = useState(new Date().toISOString());
   const [commentTargetId, setCommentTargetId] = useState(null);
+
+  // Custom Notification Modal State
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: 'success',
+    title: '',
+    message: '',
+    onConfirm: null
+  });
+
+  const notify = (title, message, type = 'warning', onConfirm = null) => {
+    setModalConfig({
+      isOpen: true,
+      type,
+      title,
+      message,
+      onConfirm
+    });
+  };
 
   useEffect(() => {
     fetchChecklistDetails();
@@ -49,13 +69,17 @@ export default function ChecklistRunner() {
   };
 
   const handleSave = async () => {
-    if (!currentUser) return alert("Session expired. Please login again.");
+    if (!currentUser) return notify("Authentication Required", "Session expired. Please log in again.", 'warning');
 
     // Validation
     for (const item of items) {
        const val = submissionData[item.id];
-       if (item.is_mandatory && !val?.status) return alert(`Mandatory Item Missing: ${item.task_description}`);
-       if (val?.status === 'cross' && !val?.comment) return alert(`Comment Required for: ${item.task_description}`);
+       if (item.is_mandatory && !val?.status) {
+         return notify("Incomplete Checksheet", `Mandatory task missing: "${item.task_description}"`, 'warning');
+       }
+       if (val?.status === 'cross' && !val?.comment) {
+         return notify("Explanation Required", `Please add a comment explaining the issue for: "${item.task_description}"`, 'warning');
+       }
     }
 
     try {
@@ -69,15 +93,20 @@ export default function ChecklistRunner() {
       }
 
       localStorage.removeItem(`ros_checklist_run_${checklistId}`);
-      alert("Protocol finalized and archived.");
-      navigate('/tasks/open');
+
+      notify(
+        checklist?.name || "Checksheet Completed",
+        `${checklist?.name || "Checksheet"} finalized and archived successfully.`,
+        'success',
+        () => navigate('/checklists')
+      );
     } catch (err) {
-      alert("Submission failed: " + err.message);
+      notify("Submission Error", "Failed to archive submission: " + err.message, 'error');
     }
   };
 
-  if (loading) return <div className="py-20 text-center animate-pulse italic text-slate-400">Loading Protocol...</div>;
-  if (!checklist) return <div className="py-20 text-center text-rose-500 font-black">PROTOCOL NOT FOUND</div>;
+  if (loading) return <div className="py-20 text-center animate-pulse italic text-slate-400">Loading Checksheet...</div>;
+  if (!checklist) return <div className="py-20 text-center text-rose-500 font-black">CHECKSHEET NOT FOUND</div>;
 
   const progress = items.length > 0 ? Math.round((Object.keys(submissionData).filter(id => submissionData[id]?.status).length / items.length) * 100) : 0;
 
@@ -87,16 +116,16 @@ export default function ChecklistRunner() {
       {/* Dynamic Header */}
       <div className="flex items-center justify-between px-2">
          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors">
-            <ArrowLeft size={14} /> Back to Boards
+            <ArrowLeft size={14} /> Back to Checksheets
          </button>
          <div className="text-right">
-            <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Protocol Runner</p>
+            <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Active Checksheet</p>
             <p className="text-[10px] font-black text-slate-900 uppercase">{checklist.name}</p>
          </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-         <SummaryCard title="Current Session" icon={Timer}>
+         <SummaryCard title="Checksheet Progress" icon={Timer}>
             <div className="flex items-end justify-between gap-4">
                <h2 className="text-5xl font-black text-slate-900 tracking-tighter leading-none">{progress}%</h2>
                <div className="flex-1 pb-1">
@@ -106,22 +135,22 @@ export default function ChecklistRunner() {
                </div>
             </div>
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-3">
-               {Object.keys(submissionData).filter(id => submissionData[id]?.status).length} of {items.length} Points Verified
+               {Object.keys(submissionData).filter(id => submissionData[id]?.status).length} of {items.length} Tasks Verified
             </p>
          </SummaryCard>
 
-         <SummaryCard title="Finalization" icon={Save}>
+         <SummaryCard title="Final Sign-Off" icon={Save}>
             <button
                 onClick={handleSave}
                 disabled={progress < 10}
-                className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${
+                className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl cursor-pointer ${
                     progress === 100
-                    ? 'bg-emerald-600 text-white'
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                     : 'bg-slate-900 text-white disabled:opacity-30'
                 }`}
               >
                  <CheckCircle size={18} />
-                 <span className="text-[10px] font-black uppercase tracking-widest">Submit & Finish</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest">Sign Off & Complete {checklist.name}</span>
               </button>
          </SummaryCard>
       </div>
@@ -144,6 +173,15 @@ export default function ChecklistRunner() {
         title={items.find(i => i.id === commentTargetId)?.task_description}
         initialValue={submissionData[commentTargetId]?.comment}
         onSave={(text) => handleItemChange(commentTargetId, { ...submissionData[commentTargetId], comment: text })}
+      />
+
+      <NotificationModal
+        isOpen={modalConfig.isOpen}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+        onConfirm={modalConfig.onConfirm}
       />
     </div>
   );

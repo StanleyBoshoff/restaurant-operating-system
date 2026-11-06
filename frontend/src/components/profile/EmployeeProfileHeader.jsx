@@ -98,7 +98,7 @@ export default function EmployeeProfileHeader({ employee }) {
                         </button>
 
                         {isMenuOpen && (
-                            <div className="absolute right-0 bottom-full mb-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                            <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                                 <div className="p-2 bg-slate-50 border-b border-slate-100">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Personnel Actions</span>
                                 </div>

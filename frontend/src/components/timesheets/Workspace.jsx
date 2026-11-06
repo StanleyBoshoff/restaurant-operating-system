@@ -9,7 +9,6 @@ import { ATTENDANCE_TABS } from './tabs';
 import TabOverview from './TabOverview';
 import TabMonthlySummary from './TabMonthlySummary';
 import TabIndividualTimesheets from './TabIndividualTimesheets';
-import TabMonthlyRegister from './TabMonthlyRegister';
 import TabPayrollExport from './TabPayrollExport';
 
 export default function Workspace() {
@@ -17,7 +16,7 @@ export default function Workspace() {
     <div className="animate-in fade-in duration-500">
       <ModuleWorkspaceHeader
         title="Time & Attendance"
-        description="Monitor staff hours, verify monthly registers, and handle payroll reporting."
+        description="Monitor staff hours, individual timesheets, and handle payroll reporting."
         icon={Clock}
       />
 
@@ -31,7 +30,6 @@ export default function Workspace() {
           <Route path="/" element={<TabOverview />} />
           <Route path="individual" element={<TabIndividualTimesheets />} />
           <Route path="monthly-summary" element={<TabMonthlySummary />} />
-          <Route path="monthly-register" element={<TabMonthlyRegister />} />
           <Route path="payroll-export" element={<TabPayrollExport />} />
         </Routes>
       </div>

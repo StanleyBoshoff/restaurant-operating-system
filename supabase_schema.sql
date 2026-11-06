@@ -174,9 +174,14 @@ CREATE TABLE IF NOT EXISTS tasks (
     assigned_to_id UUID REFERENCES employees(id),
     assigned_to_dept TEXT,
     due_date TIMESTAMP WITH TIME ZONE,
+    deadline_time TIME,
+    checklist_id UUID REFERENCES checklists(id),
+    required_permission_id TEXT,
     is_recurring BOOLEAN DEFAULT FALSE,
     recurrence_pattern TEXT,
     status TEXT DEFAULT 'Open',
+    started_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -242,8 +247,10 @@ CREATE TABLE IF NOT EXISTS checklist_items (
 CREATE TABLE IF NOT EXISTS checklist_submissions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     checklist_id UUID REFERENCES checklists(id),
+    submitted_by_id UUID REFERENCES employees(id),
     submitted_by_name TEXT,
     submission_data JSONB,
+    started_at TIMESTAMP WITH TIME ZONE,
     completed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -431,6 +438,24 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='company_payroll_settings' AND column_name='enable_monthly_overtime') THEN ALTER TABLE company_payroll_settings ADD COLUMN enable_monthly_overtime BOOLEAN DEFAULT TRUE; END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='company_payroll_settings' AND column_name='enable_sunday_premium') THEN ALTER TABLE company_payroll_settings ADD COLUMN enable_sunday_premium BOOLEAN DEFAULT TRUE; END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='company_payroll_settings' AND column_name='enable_holiday_premium') THEN ALTER TABLE company_payroll_settings ADD COLUMN enable_holiday_premium BOOLEAN DEFAULT TRUE; END IF;
+    -- EMPLOYEE_WARNINGS: Add extra columns
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employee_warnings' AND column_name='expiry_date') THEN
+        ALTER TABLE employee_warnings ADD COLUMN expiry_date DATE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='employee_warnings' AND column_name='offence_id') THEN
+        ALTER TABLE employee_warnings ADD COLUMN offence_id INTEGER;
+    END IF;
+
+    -- TASKS: Add missing operational columns
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='deadline_time') THEN ALTER TABLE tasks ADD COLUMN deadline_time TIME; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='checklist_id') THEN ALTER TABLE tasks ADD COLUMN checklist_id UUID REFERENCES checklists(id); END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='required_permission_id') THEN ALTER TABLE tasks ADD COLUMN required_permission_id TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='started_at') THEN ALTER TABLE tasks ADD COLUMN started_at TIMESTAMP WITH TIME ZONE; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tasks' AND column_name='completed_at') THEN ALTER TABLE tasks ADD COLUMN completed_at TIMESTAMP WITH TIME ZONE; END IF;
+
+    -- CHECKLIST SUBMISSIONS: Add accountability columns
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='checklist_submissions' AND column_name='submitted_by_id') THEN ALTER TABLE checklist_submissions ADD COLUMN submitted_by_id UUID REFERENCES employees(id); END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='checklist_submissions' AND column_name='started_at') THEN ALTER TABLE checklist_submissions ADD COLUMN started_at TIMESTAMP WITH TIME ZONE; END IF;
 END $$;
 
 -- Employee Payroll Adjustments (Tips, Tronc, Allowances, Deductions)

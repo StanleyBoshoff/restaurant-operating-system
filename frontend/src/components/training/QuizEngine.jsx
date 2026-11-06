@@ -2,72 +2,17 @@ import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, HelpCircle, CheckCircle2, XCircle, Info } from 'lucide-react';
 
 export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUserAnswers = {} }) {
-  // Randomize questions and lock them in ONCE on mount so order/options never shift mid-quiz or during review
-  const [randomizedQuestions] = useState(() => {
-    if (!quiz || !quiz.questions) return [];
-
-    // Fisher-Yates shuffle helper
-    const shuffle = (array) => {
-      const arr = [...array];
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      return arr;
-    };
-
-    return shuffle(quiz.questions).map((q, qIdx) => {
-      const correctText = q.correctAnswerText || q.correctAnswer;
-      const incorrectTexts = q.incorrectAnswers || [q.incorrect1, q.incorrect2, q.incorrect3].filter(Boolean);
-      const stableId = q.id || `q-${qIdx}`;
-
-      if (correctText !== undefined && correctText !== null) {
-        const allOpts = [
-          { text: correctText, isCorrect: true, feedback: 'Correct!' },
-          ...incorrectTexts.map(text => ({ text, isCorrect: false, feedback: 'Incorrect. Review training materials.' }))
-        ];
-        const shuffledOpts = shuffle(allOpts);
-        const optionsWithIds = shuffledOpts.map((opt, idx) => ({
-          id: ['A', 'B', 'C', 'D'][idx] || String(idx + 1),
-          text: opt.text,
-          isCorrect: opt.isCorrect,
-          feedback: opt.feedback
-        }));
-        const correctOpt = optionsWithIds.find(o => o.isCorrect);
-
-        return {
-          id: stableId,
-          question: q.question,
-          hint: q.hint,
-          options: optionsWithIds,
-          correctOptionId: correctOpt ? correctOpt.id : 'A'
-        };
-      } else {
-        const shuffledOpts = shuffle(q.options || []);
-        const optionsWithIds = shuffledOpts.map((opt, idx) => ({
-          ...opt,
-          id: ['A', 'B', 'C', 'D'][idx] || opt.id
-        }));
-        const correctOpt = optionsWithIds.find(o => o.id === q.correctOptionId || o.isCorrect);
-        return {
-          ...q,
-          id: stableId,
-          options: optionsWithIds,
-          correctOptionId: correctOpt ? correctOpt.id : q.correctOptionId
-        };
-      }
-    });
-  });
-
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState(initialUserAnswers);
   const [showHint, setShowHint] = useState(false);
 
-  if (randomizedQuestions.length === 0) {
+  const questions = quiz?.questions || [];
+
+  if (questions.length === 0) {
     return <div className="py-12 text-center italic text-slate-400">Loading assessment questions...</div>;
   }
 
-  const currentQuestion = randomizedQuestions[currentIndex];
+  const currentQuestion = questions[currentIndex];
   const isReview = mode === 'review';
 
   const handleOptionSelect = (optionId) => {
@@ -76,21 +21,20 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
   };
 
   const nextQuestion = () => {
-    if (currentIndex < randomizedQuestions.length - 1) {
+    if (currentIndex < questions.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setShowHint(false);
     } else {
       if (isReview) {
         onComplete(userAnswers);
       } else {
-        // Calculate score precisely using locked-in randomized questions
         let correctCount = 0;
-        randomizedQuestions.forEach(q => {
+        questions.forEach(q => {
           if (userAnswers[q.id] === q.correctOptionId) {
             correctCount++;
           }
         });
-        const finalScore = randomizedQuestions.length > 0 ? Math.round((correctCount / randomizedQuestions.length) * 100) : 100;
+        const finalScore = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 100;
         onComplete(userAnswers, finalScore);
       }
     }
@@ -122,15 +66,15 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
       {/* Progress */}
       <div className="flex items-center justify-between">
         <div className="text-xs font-bold text-slate-400 uppercase tracking-tighter">
-          Question {currentIndex + 1} of {randomizedQuestions.length}
+          Question {currentIndex + 1} of {questions.length}
         </div>
         <div className="flex gap-1">
-          {randomizedQuestions.map((_, idx) => (
+          {questions.map((_, idx) => (
             <div
               key={idx}
               className={`h-1.5 w-8 rounded-full transition-colors ${
                 idx === currentIndex ? 'bg-yellow-600' :
-                (userAnswers[randomizedQuestions[idx].id] ? 'bg-slate-200' : 'bg-slate-100')
+                (userAnswers[questions[idx].id] ? 'bg-slate-200' : 'bg-slate-100')
               }`}
             />
           ))}
@@ -210,7 +154,7 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
           disabled={!userAnswers[currentQuestion.id] && !isReview}
           className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 disabled:opacity-50 shadow-lg shadow-slate-900/10 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
         >
-          {currentIndex === randomizedQuestions.length - 1 ? (isReview ? 'Exit Review' : 'Submit Quiz') : 'Next Question'}
+          {currentIndex === questions.length - 1 ? (isReview ? 'Exit Review' : 'Submit Quiz') : 'Next Question'}
           <ChevronRight size={20} />
         </button>
       </div>

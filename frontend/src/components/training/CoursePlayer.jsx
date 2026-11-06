@@ -3,6 +3,64 @@ import { Play, BookOpen, GraduationCap, RotateCcw, ArrowRight, X, CheckCircle } 
 import Flashcards from './Flashcards';
 import QuizEngine from './QuizEngine';
 
+// Helper to randomize and lock in quiz questions and option positions once per attempt
+const generateRandomizedQuiz = (quizInput) => {
+  if (!quizInput || !quizInput.questions) return { questions: [] };
+
+  const shuffle = (array) => {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  };
+
+  const shuffledQuestions = shuffle(quizInput.questions).map((q, qIdx) => {
+    const correctText = q.correctAnswerText || q.correctAnswer;
+    const incorrectTexts = q.incorrectAnswers || [q.incorrect1, q.incorrect2, q.incorrect3].filter(Boolean);
+    const stableId = q.id || `q-${qIdx}`;
+
+    if (correctText !== undefined && correctText !== null) {
+      const allOpts = [
+        { text: correctText, isCorrect: true, feedback: 'Correct!' },
+        ...incorrectTexts.map(text => ({ text, isCorrect: false, feedback: 'Incorrect. Review training materials.' }))
+      ];
+      const shuffledOpts = shuffle(allOpts);
+      const optionsWithIds = shuffledOpts.map((opt, idx) => ({
+        id: ['A', 'B', 'C', 'D'][idx] || String(idx + 1),
+        text: opt.text,
+        isCorrect: opt.isCorrect,
+        feedback: opt.feedback
+      }));
+      const correctOpt = optionsWithIds.find(o => o.isCorrect);
+
+      return {
+        id: stableId,
+        question: q.question,
+        hint: q.hint,
+        options: optionsWithIds,
+        correctOptionId: correctOpt ? correctOpt.id : 'A'
+      };
+    } else {
+      const shuffledOpts = shuffle(q.options || []);
+      const optionsWithIds = shuffledOpts.map((opt, idx) => ({
+        ...opt,
+        id: ['A', 'B', 'C', 'D'][idx] || opt.id
+      }));
+      const correctOpt = optionsWithIds.find(o => o.id === q.correctOptionId || o.isCorrect);
+      return {
+        ...q,
+        id: stableId,
+        options: optionsWithIds,
+        correctOptionId: correctOpt ? correctOpt.id : q.correctOptionId
+      };
+    }
+  });
+
+  return { questions: shuffledQuestions };
+};
+
 export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
   // Build steps list: use course.stepsList if available, or construct standard steps
   const rawSteps = course.stepsList || course.steps?.stepsList || [
@@ -17,25 +75,26 @@ export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
   const [isCompleted, setIsCompleted] = useState(false);
   const [isReviewing, setIsReviewing] = useState(false);
 
+  // Locked-in randomized quiz for this attempt
+  const [lockedQuiz, setLockedQuiz] = useState(() => {
+    const quizStep = rawSteps.find(s => s.type === 'quiz');
+    const sourceQuiz = quizStep?.questions ? { questions: quizStep.questions } : course.quiz || { questions: [] };
+    return generateRandomizedQuiz(sourceQuiz);
+  });
+
   const currentStep = rawSteps[currentStepIndex] || rawSteps[0];
 
-  const handleQuizComplete = (answers) => {
+  const handleQuizComplete = (answers, finalScore) => {
     setUserAnswers(answers);
-    const questionsList = currentStep.questions || course.quiz?.questions || [];
-    let correctCount = 0;
-    questionsList.forEach(q => {
-      if (answers[q.id] === q.correctOptionId) correctCount++;
-    });
-    const finalScore = questionsList.length > 0 ? Math.round((correctCount / questionsList.length) * 100) : 100;
-    setScore(finalScore);
+    const scoreVal = finalScore !== undefined ? finalScore : 0;
+    setScore(scoreVal);
 
-    // 90% is the pass threshold as requested
-    if (finalScore >= 90) {
+    if (scoreVal >= 90) {
       onProgressUpdate(100);
       setIsCompleted(true);
     } else {
       onProgressUpdate(75);
-      setIsCompleted(true); // Show results screen with score & pass/fail status
+      setIsCompleted(true);
     }
   };
 
@@ -62,7 +121,6 @@ export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
 
   const renderStepContent = () => {
     if (isReviewing) {
-      const quizObj = currentStep.questions ? { questions: currentStep.questions } : course.quiz || { questions: [] };
       return (
         <div className="space-y-6 w-full max-w-2xl mx-auto p-4 sm:p-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -75,7 +133,7 @@ export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
              </button>
           </div>
           <QuizEngine
-            quiz={quizObj}
+            quiz={lockedQuiz}
             initialUserAnswers={userAnswers}
             mode="review"
             onComplete={() => setIsReviewing(false)}
@@ -116,6 +174,10 @@ export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
                 setCurrentStepIndex(0);
                 setUserAnswers({});
                 setScore(0);
+                // Re-randomize for new attempt
+                const quizStep = rawSteps.find(s => s.type === 'quiz');
+                const sourceQuiz = quizStep?.questions ? { questions: quizStep.questions } : course.quiz || { questions: [] };
+                setLockedQuiz(generateRandomizedQuiz(sourceQuiz));
               }}
               className="w-full px-6 py-3.5 bg-yellow-500 text-slate-950 font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-yellow-400 transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
             >
@@ -178,7 +240,6 @@ export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
         );
 
       case 'quiz':
-        const quizObj = currentStep.questions ? { questions: currentStep.questions } : course.quiz || { questions: [] };
         return (
           <div className="space-y-6 w-full max-w-2xl mx-auto p-4 sm:p-6">
             <div className="text-center space-y-1">
@@ -186,7 +247,7 @@ export default function CoursePlayer({ course, onClose, onProgressUpdate }) {
               <p className="text-xs text-slate-500 font-medium">Test your knowledge on {course.title}.</p>
             </div>
             <QuizEngine
-              quiz={quizObj}
+              quiz={lockedQuiz}
               onComplete={handleQuizComplete}
               mode="quiz"
             />

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import SummaryCard from '../common/SummaryCard';
 import { BookOpen, Clock, Award, Star, Search, Play, CheckCircle } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
 import CoursePlayer from './CoursePlayer';
 import { waiterBasicsCourse } from './mockQuizData';
+import { supabase } from '../../supabaseClient';
 
 export default function TabCourses() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,7 +16,7 @@ export default function TabCourses() {
     1: 0 // Waiter Basics ID
   });
 
-  const COURSES = [
+  const [coursesList, setCoursesList] = useState([
     {
       ...waiterBasicsCourse,
       id: 1,
@@ -26,11 +27,45 @@ export default function TabCourses() {
       status: 'Mandatory',
       progress: courseProgress[1] || 0
     }
-  ];
+  ]);
 
-  const categories = ['All', ...new Set(COURSES.map(c => c.cat))];
+  useEffect(() => {
+    fetchCustomCourses();
+  }, []);
 
-  const filtered = COURSES.filter(c =>
+  const fetchCustomCourses = async () => {
+    try {
+      const { data } = await supabase.from('training_courses').select('*');
+      if (data && data.length > 0) {
+        const custom = data.map((c) => ({
+          id: c.id,
+          title: c.title,
+          cat: c.category || 'Service',
+          description: c.description,
+          duration: c.duration || '30 mins',
+          difficulty: c.difficulty || 'Beginner',
+          rating: 5.0,
+          status: c.status || 'Mandatory',
+          progress: courseProgress[c.id] || 0,
+          youtubeId: c.youtubeId || 'dQw4w9WgXcQ',
+          flashcards: c.flashcards || [],
+          quiz: c.quiz || { questions: [] },
+          steps: c.steps || []
+        }));
+
+        setCoursesList(prev => [
+          prev[0], // Keep default Waiter Basics
+          ...custom
+        ]);
+      }
+    } catch (err) {
+      console.error("Failed to load custom training courses:", err);
+    }
+  };
+
+  const categories = ['All', ...new Set(coursesList.map(c => c.cat))];
+
+  const filtered = coursesList.filter(c =>
     (selectedCat === 'All' || c.cat === selectedCat) &&
     c.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -105,12 +140,12 @@ export default function TabCourses() {
                <div className="space-y-1">
                   <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-tighter">
                     <span className="text-slate-500 text-[8px] tracking-[0.1em]">PROGRESS</span>
-                    <span className="text-slate-900">{course.progress}%</span>
+                    <span className="text-slate-900">{courseProgress[course.id] || 0}%</span>
                   </div>
                   <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                     <div
-                      className={`h-full transition-all duration-700 ${course.progress === 100 ? 'bg-green-500' : 'bg-yellow-600'}`}
-                      style={{ width: `${course.progress}%` }}
+                      className={`h-full transition-all duration-700 ${(courseProgress[course.id] || 0) === 100 ? 'bg-green-500' : 'bg-yellow-600'}`}
+                      style={{ width: `${courseProgress[course.id] || 0}%` }}
                     ></div>
                   </div>
                </div>
@@ -118,11 +153,11 @@ export default function TabCourses() {
                <button
                 onClick={() => setActiveCourse(course)}
                 className={`w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-all active:scale-[0.97] ${
-                 course.progress === 100
+                 (courseProgress[course.id] || 0) === 100
                  ? 'bg-green-50 text-green-700 border border-green-100 shadow-3xs'
                  : 'bg-slate-900 text-white hover:bg-slate-800 shadow-sm'
                }`}>
-                 {course.progress === 100 ? (
+                 {(courseProgress[course.id] || 0) === 100 ? (
                    <>
                      <CheckCircle size={14} className="text-green-600" />
                      Certified Complete
@@ -130,7 +165,7 @@ export default function TabCourses() {
                  ) : (
                    <>
                      <Play size={14} />
-                     {course.progress > 0 ? 'Resume Course' : 'Start Course'}
+                     {(courseProgress[course.id] || 0) > 0 ? 'Resume Course' : 'Start Course'}
                    </>
                  )}
                </button>
@@ -138,7 +173,7 @@ export default function TabCourses() {
 
             <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{course.cat} Unit</span>
-               <button className="text-[9px] font-black text-slate-900 uppercase tracking-widest hover:text-yellow-600 transition-colors">Details</button>
+               <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Masterclass</span>
             </div>
           </div>
         ))}
@@ -149,12 +184,12 @@ export default function TabCourses() {
          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 py-2">
             <div>
                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Active Enrollments</p>
-               <h4 className="text-2xl font-black text-slate-900">{COURSES.length}</h4>
+               <h4 className="text-2xl font-black text-slate-900">{coursesList.length}</h4>
             </div>
             <div>
                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Completed Units</p>
                <h4 className="text-2xl font-black text-green-600">
-                 {COURSES.filter(c => c.progress === 100).length}
+                 {Object.values(courseProgress).filter(p => p === 100).length}
                </h4>
             </div>
             <div>

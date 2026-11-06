@@ -458,6 +458,13 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='checklist_submissions' AND column_name='submitted_by_id') THEN ALTER TABLE checklist_submissions ADD COLUMN submitted_by_id UUID REFERENCES employees(id); END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='checklist_submissions' AND column_name='started_at') THEN ALTER TABLE checklist_submissions ADD COLUMN started_at TIMESTAMP WITH TIME ZONE; END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='company_payroll_settings' AND column_name='payroll_cycle_start_day') THEN ALTER TABLE company_payroll_settings ADD COLUMN payroll_cycle_start_day INTEGER DEFAULT 21; END IF;
+
+    -- TRAINING COURSES: Add flexible curriculum columns
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='training_courses' AND column_name='description') THEN ALTER TABLE training_courses ADD COLUMN description TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='training_courses' AND column_name='duration') THEN ALTER TABLE training_courses ADD COLUMN duration TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='training_courses' AND column_name='difficulty') THEN ALTER TABLE training_courses ADD COLUMN difficulty TEXT; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='training_courses' AND column_name='target_roles') THEN ALTER TABLE training_courses ADD COLUMN target_roles JSONB DEFAULT '[]'; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='training_courses' AND column_name='steps') THEN ALTER TABLE training_courses ADD COLUMN steps JSONB DEFAULT '[]'; END IF;
 END $$;
 
 -- Employee Payroll Adjustments (Tips, Tronc, Allowances, Deductions)

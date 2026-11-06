@@ -8,6 +8,7 @@ import { TRAINING_TABS } from './tabs';
 // Tab Components
 import TabOverview from './TabOverview';
 import TabCourses from './TabCourses';
+import TabCourseCreator from './TabCourseCreator';
 import TabAssessments from './TabAssessments';
 import TabCertificates from './TabCertificates';
 import TabKnowledgeBase from './TabKnowledgeBase';
@@ -31,6 +32,7 @@ export default function Workspace() {
         <Routes>
           <Route path="/" element={<TabOverview />} />
           <Route path="courses" element={<TabCourses />} />
+          <Route path="creator" element={<TabCourseCreator />} />
           <Route path="assessments" element={<TabAssessments />} />
           <Route path="certificates" element={<TabCertificates />} />
           <Route path="knowledge-base" element={<TabKnowledgeBase />} />

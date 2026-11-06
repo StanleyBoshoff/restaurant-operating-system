@@ -193,14 +193,14 @@ export default function TabCompleted() {
                             </div>
                          </td>
 
-                         {/* DUE DATE & TIME (Normal Slate Formatting) */}
+                         {/* DUE DATE & TIME */}
                          <td className="px-4 py-4 text-center">
                             <span className="text-[10px] font-bold text-slate-600">
                                {timing.dueFormatted}
                             </span>
                          </td>
 
-                         {/* COMPLETED AT (Changes to RED if Overdue, GREEN if On Time) */}
+                         {/* COMPLETED AT */}
                          <td className="px-4 py-4 text-center">
                             <span className={`text-[10px] font-black ${
                                timing.isOverdue ? 'text-rose-600' : 'text-emerald-600'
@@ -285,7 +285,7 @@ export default function TabCompleted() {
                            <p className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">Deadline: {selectedTask.deadline_time ? selectedTask.deadline_time.substring(0,5) : '--:--'}</p>
                         </div>
 
-                        {/* Completion Timestamp Box: Only text changes Red/Green */}
+                        {/* Completion Timestamp Box */}
                         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Completion Timestamp</span>
                            <p className={`text-xs font-black uppercase ${timing.isOverdue ? 'text-rose-600' : 'text-emerald-600'}`}>
@@ -297,7 +297,7 @@ export default function TabCompleted() {
                         </div>
                      </div>
 
-                     {/* --- CHECKLIST ITEMS, STATUSES & NOTES INSPECTION --- */}
+                     {/* Checklist Items Inspection */}
                      <div className="space-y-3">
                         <div className="flex items-center justify-between">
                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Protocol Inspection Log (Completed / Issues / Quantities)</h4>
@@ -316,7 +316,7 @@ export default function TabCompleted() {
                            <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
                               {checklistItems.map((item, index) => {
                                  const submissionEntry = checklistSubmission?.submission_data?.[item.id] || {};
-                                 const status = submissionEntry.status; // 'tick', 'cross', 'action'
+                                 const status = submissionEntry.status;
                                  const comment = submissionEntry.comment;
                                  const quantity = submissionEntry.quantity;
                                  const enabledOptions = item.enabled_options || ['tick', 'cross'];
@@ -337,7 +337,6 @@ export default function TabCompleted() {
                                              </div>
                                           </div>
 
-                                          {/* Dynamic Status / Option Badge */}
                                           <div>
                                              {status === 'tick' && (
                                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase tracking-wider shadow-sm">
@@ -362,7 +361,6 @@ export default function TabCompleted() {
                                           </div>
                                        </div>
 
-                                       {/* Note / Comment Display */}
                                        {comment && (
                                           <div className="ml-8 mt-1 p-3 bg-white/80 rounded-xl border border-blue-100 flex items-start gap-2 text-xs text-slate-700 shadow-3xs">
                                              <MessageSquare size={14} className="text-blue-600 shrink-0 mt-0.5" />

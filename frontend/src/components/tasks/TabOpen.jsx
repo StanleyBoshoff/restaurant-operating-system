@@ -5,6 +5,7 @@ import { CheckSquare, Play, CheckCircle, Clock, AlertCircle, RefreshCw, UserPlus
 import { getTasksToday, updateTaskStatus, getAutoAssignee } from '../../utils/taskService';
 import StatusBadge from '../common/StatusBadge';
 import { useAuth } from '../../context/AuthContext';
+import { canDo } from '../../utils/permissionService';
 
 export default function TabOpen() {
   const { user: currentUser } = useAuth();
@@ -33,7 +34,9 @@ export default function TabOpen() {
 
   const handleStartTask = async (task) => {
     try {
-      await updateTaskStatus(task.id, 'In Progress');
+      // 1. Verify Authority
+      const hasAuthority = canDo(currentUser, task.required_permission_id);
+      if (!hasAuthority) return alert("You do not have the required authority for this operation.");
 
       // Direct Navigation: If there's a linked checklist, open it instantly
       if (task.checklist_id) {
@@ -59,18 +62,6 @@ export default function TabOpen() {
     } catch (err) {
       alert("Failed to complete task: " + err.message);
     }
-  };
-
-  const handleAutoAssign = async (task) => {
-     try {
-        const assignee = await getAutoAssignee(task.required_permission_id);
-        if (!assignee) return alert("No qualified staff currently clocked in.");
-
-        await updateTaskStatus(task.id, 'Pending', { assigned_to_id: assignee.id });
-        fetchTasks();
-     } catch (err) {
-        alert("Assignment failed: " + err.message);
-     }
   };
 
   if (loading) return <div className="py-20 text-center italic text-slate-400">Syncing active floor tasks...</div>;
@@ -188,15 +179,6 @@ export default function TabOpen() {
                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{task.employees?.role || currentUser?.role || 'Staff'}</p>
                           </div>
                        </div>
-                       {!task.assigned_to_id && (
-                          <button
-                            onClick={() => handleAutoAssign(task)}
-                            className="p-2 bg-yellow-50 text-yellow-600 rounded-xl hover:bg-yellow-100 transition-all border border-yellow-100"
-                            title="Auto-Assign to Lowest Qualified"
-                          >
-                             <UserPlus size={16} />
-                          </button>
-                       )}
                     </div>
 
                     <div className="grid grid-cols-1 gap-2">

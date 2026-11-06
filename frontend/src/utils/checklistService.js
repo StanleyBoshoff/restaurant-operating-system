@@ -5,6 +5,39 @@ import { supabase } from '../supabaseClient';
  */
 
 /**
+ * Fetches all operational checklists.
+ */
+export const getAllChecklists = async () => {
+  const { data, error } = await supabase
+    .from('checklists')
+    .select('*')
+    .order('name', { ascending: true });
+
+  if (error) throw error;
+  return data;
+};
+
+/**
+ * Fetches recent checklist submissions with checklist details.
+ */
+export const getRecentSubmissions = async (limit = 10) => {
+  const { data, error } = await supabase
+    .from('checklist_submissions')
+    .select(`
+      *,
+      checklists (
+        name,
+        category
+      )
+    `)
+    .order('completed_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data;
+};
+
+/**
  * Fetches all items for a specific checklist by name.
  */
 export const getChecklistItems = async (checklistName) => {

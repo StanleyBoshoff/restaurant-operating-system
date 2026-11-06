@@ -5,25 +5,37 @@ import StatusBadge from '../common/StatusBadge';
 import { getChecklistItems, submitChecklist, getAssignedStaffForChecklist } from '../../utils/checklistService';
 import ChecklistItemMobile from './ChecklistItemMobile';
 import CommentModal from './CommentModal';
+import NotificationModal from '../common/NotificationModal';
 import { useAuth } from '../../context/AuthContext';
 
 export default function TabOpening() {
   const { user: currentUser } = useAuth();
   const [items, setItems] = useState([]);
-  const [submissionData, setSubmissionData] = useState({}); // { itemId: { status, comment, quantity } }
+  const [submissionData, setSubmissionData] = useState({});
   const [assignedStaff, setAssignedStaff] = useState(null);
   const [isSaved, setIsSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [startedAt] = useState(new Date().toISOString());
 
-  // Comment Modal State
   const [commentTargetId, setCommentTargetId] = useState(null);
+
+  // Custom Notification Modal
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: 'success',
+    title: '',
+    message: '',
+    onConfirm: null
+  });
+
+  const notify = (title, message, type = 'warning', onConfirm = null) => {
+    setModalConfig({ isOpen: true, type, title, message, onConfirm });
+  };
 
   useEffect(() => {
     fetchItems();
     fetchAssignment();
 
-    // Recovery from local storage
     const saved = localStorage.getItem('ros_opening_checklist_v2_draft');
     if (saved) {
       setSubmissionData(JSON.parse(saved));
@@ -43,7 +55,6 @@ export default function TabOpening() {
   };
 
   const fetchAssignment = async () => {
-     // Check who should be doing this based on permissions
      const staff = await getAssignedStaffForChecklist('can_perform_opening_checks');
      setAssignedStaff(staff);
   };
@@ -56,16 +67,15 @@ export default function TabOpening() {
   };
 
   const handleSave = async () => {
-    if (!currentUser) return alert("You must be logged in to sign off.");
+    if (!currentUser) return notify("Authentication Required", "You must be logged in to sign off.", 'warning');
 
-    // Validate: Mandatory items + Crosses need comments
     for (const item of items) {
        const val = submissionData[item.id];
        if (item.is_mandatory && !val?.status) {
-          return alert(`Mandatory Item Missing: ${item.task_description}`);
+          return notify("Mandatory Point Missing", `Please complete mandatory task: "${item.task_description}"`, 'warning');
        }
        if (val?.status === 'cross' && !val?.comment) {
-          return alert(`Comment Required: Please explain the issue for '${item.task_description}'`);
+          return notify("Comment Required", `Please explain the issue for: "${item.task_description}"`, 'warning');
        }
     }
 
@@ -75,17 +85,22 @@ export default function TabOpening() {
       setTimeout(() => setIsSaved(false), 3000);
       localStorage.removeItem('ros_opening_checklist_v2_draft');
       setSubmissionData({});
-      alert("Opening Protocol successfully committed and archived.");
+      notify("Opening Duty Checklist", "Opening Duty Checklist successfully committed and archived.", 'success');
     } catch (err) {
-      alert("Submission failed: " + err.message);
+      notify("Submission Error", "Failed to archive submission: " + err.message, 'error');
     }
   };
 
   const clearChecklist = () => {
-    if (window.confirm("Reset entire checklist and clear progress?")) {
-      setSubmissionData({});
-      localStorage.removeItem('ros_opening_checklist_v2_draft');
-    }
+    notify(
+      "Reset Checklist Progress?",
+      "Are you sure you want to reset the Opening Duty Checklist and clear all progress?",
+      'warning',
+      () => {
+        setSubmissionData({});
+        localStorage.removeItem('ros_opening_checklist_v2_draft');
+      }
+    );
   };
 
   const progress = items.length > 0
@@ -94,7 +109,7 @@ export default function TabOpening() {
 
   const categories = [...new Set(items.map(i => i.category || 'General'))];
 
-  if (loading) return <div className="py-20 text-center italic text-slate-400 animate-pulse">Syncing store protocols...</div>;
+  if (loading) return <div className="py-20 text-center italic text-slate-400 animate-pulse">Syncing Opening Duty Checklist...</div>;
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
@@ -128,7 +143,7 @@ export default function TabOpening() {
            )}
         </SummaryCard>
 
-        <SummaryCard title="Live Progress" icon={Timer}>
+        <SummaryCard title="Opening Progress" icon={Timer}>
            <div className="flex items-end justify-between gap-4">
               <h2 className="text-5xl font-black text-slate-900 tracking-tighter leading-none">{progress}%</h2>
               <div className="flex-1 pb-1">
@@ -142,28 +157,28 @@ export default function TabOpening() {
            </p>
         </SummaryCard>
 
-        <SummaryCard title="Protocol Actions" icon={Save}>
+        <SummaryCard title="Checksheet Sign-Off" icon={Save}>
            <div className="space-y-2">
               <button
                 onClick={handleSave}
                 disabled={progress < 50}
-                className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl ${
+                className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-xl cursor-pointer ${
                     progress === 100
                     ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                     : 'bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-30'
                 }`}
               >
                  <CheckCircle size={18} />
-                 <span className="text-[10px] font-black uppercase tracking-widest">Submit & Archive</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest">Submit Opening Checklist</span>
               </button>
-              <button onClick={clearChecklist} className="w-full py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-rose-600 transition-colors">
+              <button onClick={clearChecklist} className="w-full py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-rose-600 transition-colors cursor-pointer">
                  Reset Progress
               </button>
            </div>
         </SummaryCard>
       </div>
 
-      {/* 2. Checklist Groups (Mobile Optimized) */}
+      {/* 2. Checklist Groups */}
       <div className="space-y-8">
         {categories.map(cat => (
           <div key={cat} className="space-y-4">
@@ -190,13 +205,13 @@ export default function TabOpening() {
       {/* 3. Global Information Footer */}
       <div className="bg-slate-900 rounded-[2rem] p-8 text-white flex flex-col md:flex-row items-center justify-between gap-8 border border-slate-800">
          <div className="flex items-center gap-6">
-            <div className="w-16 h-16 bg-yellow-600 rounded-3xl flex items-center justify-center text-white shadow-2xl border-4 border-slate-800 rotate-3 group-hover:rotate-0 transition-transform">
+            <div className="w-16 h-16 bg-amber-600 rounded-3xl flex items-center justify-center text-white shadow-2xl border-4 border-slate-800 rotate-3">
                <ShieldAlert size={32} />
             </div>
             <div>
-               <h4 className="text-lg font-black uppercase tracking-tight">Legal Accountability notice</h4>
+               <h4 className="text-lg font-black uppercase tracking-tight">Accountability Record Notice</h4>
                <p className="text-[10px] text-slate-400 font-medium max-w-md leading-relaxed mt-1 uppercase tracking-tighter">
-                  This checklist is a binding operational record. Misrepresentation of facts (pencil-whipping) is a dismissible offense under BCEA misconduct rules.
+                  This checksheet is an official store record. Misrepresentation of facts is subject to statutory disciplinary procedure.
                </p>
             </div>
          </div>
@@ -210,13 +225,21 @@ export default function TabOpening() {
          </div>
       </div>
 
-      {/* 4. Comment Modal */}
       <CommentModal
         isOpen={!!commentTargetId}
         onClose={() => setCommentTargetId(null)}
         title={items.find(i => i.id === commentTargetId)?.task_description}
         initialValue={submissionData[commentTargetId]?.comment}
         onSave={(text) => handleItemChange(commentTargetId, { ...submissionData[commentTargetId], comment: text })}
+      />
+
+      <NotificationModal
+        isOpen={modalConfig.isOpen}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+        onConfirm={modalConfig.onConfirm}
       />
     </div>
   );

@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import SummaryCard from '../common/SummaryCard';
-import { CheckSquare, Clock, AlertTriangle, CheckCircle2, TrendingUp, Users, Calendar, Filter } from 'lucide-react';
-import { getTasksToday, syncDailyTasks } from '../../utils/taskService';
+import { CheckSquare, Clock, AlertTriangle, CheckCircle2, TrendingUp, Users, Calendar, Filter, Play } from 'lucide-react';
+import { getTasksToday, syncDailyTasks, updateTaskStatus } from '../../utils/taskService';
 import StatusBadge from '../common/StatusBadge';
+import { useAuth } from '../../context/AuthContext';
+import { canDo } from '../../utils/permissionService';
 
 export default function TabOverview() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -24,6 +29,26 @@ export default function TabOverview() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStartTask = async (task) => {
+    try {
+      // 1. Verify Authority: Use required_permission_id from task template
+      const hasAuthority = canDo(user, task.required_permission_id);
+      if (!hasAuthority) return alert("You do not have the required authority for this operation.");
+
+      // 2. Start Task & Assign to current user
+      await updateTaskStatus(task.id, 'In Progress', { assigned_to_id: user.id });
+
+      // 3. Navigation
+      if (task.checklist_id) {
+          navigate(`/checklists/run/${task.checklist_id}?taskId=${task.id}`);
+      } else {
+          fetchTasks();
+      }
+    } catch (err) {
+      alert("Failed to start task: " + err.message);
     }
   };
 
@@ -118,7 +143,6 @@ export default function TabOverview() {
                     <th className="pl-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Operation / Task</th>
                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Deadline</th>
-                    <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned To</th>
                     <th className="pr-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Verification</th>
                  </tr>
               </thead>
@@ -149,33 +173,38 @@ export default function TabOverview() {
                          </div>
                       </td>
                       <td className="px-4 py-5 text-center">
-                         <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${
-                            task.status === 'Overdue' || task.status === 'Escalated'
-                            ? 'bg-rose-50 border-rose-100 text-rose-600'
-                            : 'bg-slate-50 border-slate-100 text-slate-600'
-                         }`}>
-                            {task.deadline_time ? task.deadline_time.substring(0,5) : '--:--'}
-                         </span>
-                      </td>
-                      <td className="px-4 py-5">
-                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center font-black text-[10px] text-slate-400">
-                               {task.employees ? `${task.employees.first_name[0]}${task.employees.last_name[0]}` : '??'}
-                            </div>
-                            <div>
-                               <p className="text-[10px] font-black text-slate-800 uppercase tracking-tight">{task.employees ? `${task.employees.first_name} ${task.employees.last_name}` : 'Unassigned'}</p>
-                               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{task.employees?.role || 'System Auto'}</p>
-                            </div>
+                         <div className="flex flex-col items-center">
+                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mb-1">
+                               {task.due_date ? new Date(task.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'No Date'}
+                            </span>
+                            <span className={`text-[10px] font-black px-2 py-1 rounded-lg border ${
+                               task.status === 'Overdue' || task.status === 'Escalated'
+                               ? 'bg-rose-50 border-rose-100 text-rose-600'
+                               : 'bg-slate-50 border-slate-100 text-slate-600'
+                            }`}>
+                               {task.deadline_time ? task.deadline_time.substring(0,5) : '--:--'}
+                            </span>
                          </div>
                       </td>
                       <td className="pr-6 py-5 text-right">
-                         <div className="flex flex-col items-end">
-                            <span className="text-[10px] font-black text-slate-900 uppercase">
-                               {task.status === 'Completed' ? 'ARCHIVED' : 'INSPECTION'}
-                            </span>
-                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
-                               {task.completed_at ? new Date(task.completed_at).toLocaleTimeString('en-ZA', {hour:'2-digit', minute:'2-digit'}) : 'Pending Sign-off'}
-                            </span>
+                         <div className="flex flex-col items-end gap-2">
+                            {task.status === 'Pending' ? (
+                               <button
+                                 onClick={() => handleStartTask(task)}
+                                 className="flex items-center gap-1.5 bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-90 shadow-lg"
+                               >
+                                  <Play size={10} fill="currentColor" /> Start Task
+                               </button>
+                            ) : (
+                               <>
+                                  <span className="text-[10px] font-black text-slate-900 uppercase">
+                                     {task.status === 'Completed' ? 'ARCHIVED' : 'INSPECTION'}
+                                  </span>
+                                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                                     {task.completed_at ? new Date(task.completed_at).toLocaleTimeString('en-ZA', {hour:'2-digit', minute:'2-digit'}) : 'Pending Sign-off'}
+                                  </span>
+                               </>
+                            )}
                          </div>
                       </td>
                    </tr>

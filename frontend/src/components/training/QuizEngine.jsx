@@ -22,11 +22,14 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
 
     // 1. Shuffle questions order
     const shuffledQuestions = shuffle(quiz.questions).map(q => {
-      if (q.correctAnswerText !== undefined) {
-        // Custom created quiz from Course Creator
+      // Support both creator format (correctAnswer, incorrect1/2/3) and pre-formatted format
+      const correctText = q.correctAnswerText || q.correctAnswer;
+      const incorrectTexts = q.incorrectAnswers || [q.incorrect1, q.incorrect2, q.incorrect3].filter(Boolean);
+
+      if (correctText !== undefined && correctText !== null) {
         const allOpts = [
-          { text: q.correctAnswerText, isCorrect: true, feedback: 'Correct!' },
-          ...(q.incorrectAnswers || []).map(text => ({ text, isCorrect: false, feedback: 'Incorrect. Review training materials.' }))
+          { text: correctText, isCorrect: true, feedback: 'Correct!' },
+          ...incorrectTexts.map(text => ({ text, isCorrect: false, feedback: 'Incorrect. Review training materials.' }))
         ];
         const shuffledOpts = shuffle(allOpts);
         const optionsWithIds = shuffledOpts.map((opt, idx) => ({
@@ -38,14 +41,14 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
         const correctOpt = optionsWithIds.find(o => o.isCorrect);
 
         return {
-          id: q.id,
+          id: q.id || Math.random(),
           question: q.question,
           hint: q.hint,
           options: optionsWithIds,
           correctOptionId: correctOpt ? correctOpt.id : 'A'
         };
       } else {
-        // Default mock quiz or pre-formatted quiz
+        // Default mock quiz or pre-formatted quiz options
         const shuffledOpts = shuffle(q.options || []);
         const optionsWithIds = shuffledOpts.map((opt, idx) => ({
           ...opt,
@@ -106,7 +109,7 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-8">
+    <div className="max-w-2xl mx-auto p-2 sm:p-6 space-y-6">
       {/* Progress */}
       <div className="flex items-center justify-between">
         <div className="text-xs font-bold text-slate-400 uppercase tracking-tighter">
@@ -126,8 +129,8 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
       </div>
 
       {/* Question */}
-      <div className="space-y-4">
-        <h3 className="text-xl font-bold text-slate-800 leading-tight">
+      <div className="space-y-3">
+        <h3 className="text-lg sm:text-xl font-bold text-slate-800 leading-tight">
           {currentQuestion.question}
         </h3>
 
@@ -135,7 +138,7 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
           <div>
             <button
               onClick={() => setShowHint(!showHint)}
-              className="text-xs font-medium text-yellow-700 flex items-center gap-1.5 hover:text-yellow-800 transition-colors"
+              className="text-xs font-medium text-yellow-700 flex items-center gap-1.5 hover:text-yellow-800 transition-colors cursor-pointer"
             >
               <HelpCircle size={14} />
               {showHint ? 'Hide Hint' : 'Show Hint'}
@@ -151,13 +154,13 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
 
       {/* Options */}
       <div className="grid gap-3">
-        {currentQuestion.options.map((option) => (
+        {currentQuestion.options && currentQuestion.options.map((option) => (
           <div key={option.id} className="space-y-2">
             <button
               onClick={() => handleOptionSelect(option.id)}
-              className={`w-full p-4 text-left rounded-xl border-2 transition-all flex items-center gap-4 ${getOptionStyle(option.id)}`}
+              className={`w-full p-4 text-left rounded-xl border-2 transition-all flex items-center gap-4 cursor-pointer ${getOptionStyle(option.id)}`}
             >
-              <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+              <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
                 userAnswers[currentQuestion.id] === option.id ? 'bg-yellow-600 text-white' : 'bg-slate-100 text-slate-500'
               }`}>
                 {option.id}
@@ -165,10 +168,10 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
               <span className="flex-1 font-medium text-slate-700">{option.text}</span>
 
               {isReview && option.id === currentQuestion.correctOptionId && (
-                <CheckCircle2 className="text-green-500" size={20} />
+                <CheckCircle2 className="text-green-500 shrink-0" size={20} />
               )}
               {isReview && userAnswers[currentQuestion.id] === option.id && option.id !== currentQuestion.correctOptionId && (
-                <XCircle className="text-red-500" size={20} />
+                <XCircle className="text-red-500 shrink-0" size={20} />
               )}
             </button>
 
@@ -187,7 +190,7 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
         <button
           onClick={prevQuestion}
           disabled={currentIndex === 0}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-400 hover:text-slate-600 disabled:opacity-30 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-400 hover:text-slate-600 disabled:opacity-30 transition-colors cursor-pointer"
         >
           <ChevronLeft size={20} />
           Previous
@@ -196,7 +199,7 @@ export default function QuizEngine({ quiz, onComplete, mode = 'quiz', initialUse
         <button
           onClick={nextQuestion}
           disabled={!userAnswers[currentQuestion.id] && !isReview}
-          className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 disabled:opacity-50 shadow-lg shadow-slate-900/10 transition-all flex items-center gap-2"
+          className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 disabled:opacity-50 shadow-lg shadow-slate-900/10 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
         >
           {currentIndex === randomizedQuestions.length - 1 ? (isReview ? 'Exit Review' : 'Submit Quiz') : 'Next Question'}
           <ChevronRight size={20} />

@@ -11,7 +11,7 @@ export default function Flashcards({ cards, onComplete }) {
         <p className="text-slate-400 italic text-xs uppercase font-bold tracking-widest">No flashcards configured for this session.</p>
         <button
           onClick={onComplete}
-          className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 shadow-lg text-xs uppercase tracking-widest"
+          className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 shadow-lg text-xs uppercase tracking-widest cursor-pointer"
         >
           Continue to Next Step
         </button>
@@ -70,21 +70,21 @@ export default function Flashcards({ cards, onComplete }) {
         <button
           onClick={prevCard}
           disabled={currentIndex === 0}
-          className="p-3 rounded-2xl border border-slate-200 text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="p-3 rounded-2xl border border-slate-200 text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
         >
           <ChevronLeft size={22} />
         </button>
 
         <button
           onClick={nextCard}
-          className="flex-1 max-w-xs py-3.5 bg-yellow-500 text-slate-950 font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-yellow-400 shadow-lg shadow-yellow-500/20 transition-all flex items-center justify-center gap-2"
+          className="flex-1 max-w-xs py-3.5 bg-yellow-500 text-slate-950 font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-yellow-400 shadow-lg shadow-yellow-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
         >
           {currentIndex === cards.length - 1 ? 'Finish Study' : 'Next Card'}
           <ChevronRight size={18} />
         </button>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .perspective-1000 { perspective: 1000px; }
         .transform-style-3d { transform-style: preserve-3d; }
         .backface-hidden { backface-visibility: hidden; }

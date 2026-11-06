@@ -132,7 +132,6 @@ export default function TabCourseCreator() {
         if (match && match[1]) youtubeId = match[1];
       }
 
-      // Format flashcards and quiz to match course player requirements
       const formattedFlashcards = [];
       const formattedQuestions = [];
 
@@ -145,7 +144,6 @@ export default function TabCourseCreator() {
         if (step.type === 'quiz' && step.questions) {
           step.questions.forEach((q, idx) => {
             if (q.question && q.correctAnswer) {
-              // Store correct answer + 3 incorrect answers. QuizEngine will randomize options on run!
               formattedQuestions.push({
                 id: q.id || idx + 1,
                 question: q.question,
@@ -158,18 +156,21 @@ export default function TabCourseCreator() {
         }
       });
 
+      // Store all curriculum payload cleanly in the JSONB 'steps' column and standard fields
       const coursePayload = {
         title: courseMeta.title,
         category: courseMeta.category,
-        description: courseMeta.description,
-        duration: courseMeta.duration,
-        difficulty: courseMeta.difficulty,
         status: courseMeta.status,
-        target_roles: courseMeta.target_roles,
-        youtubeId: youtubeId,
-        steps: steps,
-        flashcards: formattedFlashcards,
-        quiz: { questions: formattedQuestions }
+        steps: {
+          description: courseMeta.description,
+          duration: courseMeta.duration,
+          difficulty: courseMeta.difficulty,
+          target_roles: courseMeta.target_roles,
+          youtubeId: youtubeId,
+          stepsList: steps,
+          flashcards: formattedFlashcards,
+          quiz: { questions: formattedQuestions }
+        }
       };
 
       const { error } = await supabase.from('training_courses').insert([coursePayload]);
@@ -497,7 +498,7 @@ export default function TabCourseCreator() {
                                             placeholder="Wrong option 2..."
                                             value={q.incorrect2}
                                             onChange={e => updateQuizQuestion(sIdx, qIdx, 'incorrect2', e.target.value)}
-                                            className="w-full bg-white border border-rose-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-900"
+                                            className="w-full bg-white border border-rose-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
                                           />
                                        </div>
 
@@ -508,7 +509,7 @@ export default function TabCourseCreator() {
                                             placeholder="Wrong option 3..."
                                             value={q.incorrect3}
                                             onChange={e => updateQuizQuestion(sIdx, qIdx, 'incorrect3', e.target.value)}
-                                            className="w-full bg-white border border-rose-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-900"
+                                            className="w-full bg-white border border-rose-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
                                           />
                                        </div>
                                     </div>

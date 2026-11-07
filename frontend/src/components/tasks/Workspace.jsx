@@ -12,10 +12,7 @@ import TabTemplates from './TabTemplates';
 import TabCompleted from './TabCompleted';
 import TabReports from './TabReports';
 
-// Checklist duty tabs & protocol runner components
-import TabKitchen from '../checklists/TabKitchen';
-import TabBar from '../checklists/TabBar';
-import TabCleaning from '../checklists/TabCleaning';
+// Checklist protocol runner components
 import TabCustom from '../checklists/TabCustom';
 import ChecklistRunner from '../checklists/ChecklistRunner';
 
@@ -34,9 +31,6 @@ export default function Workspace() {
         <Routes>
           <Route path="/" element={<TabOverview />} />
           <Route path="open" element={<TabOpen />} />
-          <Route path="kitchen" element={<TabKitchen />} />
-          <Route path="bar" element={<TabBar />} />
-          <Route path="cleaning" element={<TabCleaning />} />
           <Route path="designer" element={<TabCustom />} />
           <Route path="recurring" element={<TabRecurring />} />
           <Route path="templates" element={<TabTemplates />} />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SummaryCard from '../common/SummaryCard';
-import { CheckSquare, CheckCircle2, Clock, Calendar, User, FileText, Search, X, ShieldCheck, ArrowUpRight, RefreshCw, Check, MessageSquare, Zap, AlertTriangle } from 'lucide-react';
+import { CheckSquare, CheckCircle2, Clock, Calendar, User, FileText, Search, X, ShieldCheck, ArrowUpRight, RefreshCw, Check, MessageSquare, Zap, AlertTriangle, XCircle } from 'lucide-react';
 import { getCompletedTasks } from '../../utils/taskService';
 import { supabase } from '../../supabaseClient';
 import StatusBadge from '../common/StatusBadge';
@@ -43,6 +43,7 @@ export default function TabCompleted() {
   const [completedTasks, setCompletedTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('All'); // 'All', 'Completed', 'Incomplete', 'Not done'
 
   // Modal & Checklist Inspection State
   const [selectedTask, setSelectedTask] = useState(null);
@@ -102,12 +103,22 @@ export default function TabCompleted() {
     }
   };
 
-  const filteredTasks = completedTasks.filter(t =>
-    t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.employees?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.employees?.last_name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter tasks based on search query and active tab
+  const filteredTasks = completedTasks.filter(t => {
+    const matchesSearch =
+      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.employees?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.employees?.last_name?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    const status = (t.status || '').toLowerCase();
+    if (activeTab === 'Completed') return status === 'completed';
+    if (activeTab === 'Incomplete') return status === 'incomplete' || status === 'in progress';
+    if (activeTab === 'Not done') return status === 'not done' || status === 'not completed';
+    return true; // 'All'
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -129,10 +140,27 @@ export default function TabCompleted() {
                  className="w-full bg-slate-50 border border-slate-200 pl-9 pr-4 py-2.5 rounded-xl text-xs focus:border-slate-900 outline-none transition-all"
                />
             </div>
-            <button onClick={fetchArchivedTasks} className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 transition-all active:rotate-180 duration-500 text-slate-600">
+            <button onClick={fetchArchivedTasks} className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 transition-all active:rotate-180 duration-500 text-slate-600 cursor-pointer">
                <RefreshCw size={14} />
             </button>
          </div>
+      </div>
+
+      {/* Sub-Tabs: All, Completed, Incomplete, Not done */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+         {['All', 'Completed', 'Incomplete', 'Not done'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider border transition-all whitespace-nowrap cursor-pointer ${
+                 activeTab === tab
+                 ? 'bg-slate-900 border-slate-900 text-white shadow-md'
+                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+               {tab}
+            </button>
+         ))}
       </div>
 
       {/* Archived Task List */}
@@ -153,9 +181,10 @@ export default function TabCompleted() {
                   {loading ? (
                     <tr><td colSpan="6" className="py-20 text-center italic text-slate-400 text-xs">Loading archived task history...</td></tr>
                   ) : filteredTasks.length === 0 ? (
-                    <tr><td colSpan="6" className="py-20 text-center italic text-slate-400 text-xs uppercase font-bold tracking-widest">No archived tasks found</td></tr>
+                    <tr><td colSpan="6" className="py-20 text-center italic text-slate-400 text-xs uppercase font-bold tracking-widest">No archived tasks found for "{activeTab}"</td></tr>
                   ) : filteredTasks.map(task => {
                     const timing = getTaskTimingDetails(task);
+                    const isCompleted = (task.status || '').toLowerCase() === 'completed';
                     const completedByStr = task.employees
                       ? `${task.employees.first_name} ${task.employees.last_name}`
                       : task.checklists?.checklist_submissions?.[0]?.submitted_by_name
@@ -167,9 +196,15 @@ export default function TabCompleted() {
                       <tr key={task.id} className="hover:bg-slate-50/75 transition-colors group cursor-pointer" onClick={() => handleOpenSummary(task)}>
                          <td className="pl-6 py-4">
                             <div className="flex items-center gap-3">
-                               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xs border border-emerald-100 shrink-0">
-                                  <CheckCircle2 size={18} />
-                               </div>
+                               {isCompleted ? (
+                                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xs border border-emerald-100 shrink-0">
+                                     <CheckCircle2 size={18} />
+                                  </div>
+                               ) : (
+                                  <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-black text-xs border border-rose-100 shrink-0">
+                                     <XCircle size={18} />
+                                  </div>
+                               )}
                                <div>
                                   <p className="text-xs font-black text-slate-900 uppercase tracking-tight group-hover:text-blue-600 transition-colors">{task.title}</p>
                                   <p className="text-[10px] text-slate-400 font-medium line-clamp-1">{task.description || 'No description provided.'}</p>
@@ -203,16 +238,16 @@ export default function TabCompleted() {
                          {/* COMPLETED AT */}
                          <td className="px-4 py-4 text-center">
                             <span className={`text-[10px] font-black ${
-                               timing.isOverdue ? 'text-rose-600' : 'text-emerald-600'
+                               !isCompleted ? 'text-rose-600' : timing.isOverdue ? 'text-rose-600' : 'text-emerald-600'
                             }`}>
-                               {timing.completedFormatted}
+                               {isCompleted ? timing.completedFormatted : 'NOT COMPLETED'}
                             </span>
                          </td>
 
                          <td className="pr-6 py-4 text-right">
                             <button
                               onClick={(e) => { e.stopPropagation(); handleOpenSummary(task); }}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-sm"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all shadow-sm cursor-pointer"
                             >
                                <FileText size={12} /> Summary <ArrowUpRight size={12} />
                             </button>
@@ -228,6 +263,7 @@ export default function TabCompleted() {
       {/* TASK REPORT SUMMARY MODAL */}
       {selectedTask && (() => {
          const timing = getTaskTimingDetails(selectedTask);
+         const isCompleted = (selectedTask.status || '').toLowerCase() === 'completed';
          const completedByStr = selectedTask.employees
            ? `${selectedTask.employees.first_name} ${selectedTask.employees.last_name}`
            : checklistSubmission?.submitted_by_name
@@ -244,20 +280,25 @@ export default function TabCompleted() {
                   {/* Modal Header */}
                   <div className="flex items-start justify-between border-b border-slate-100 pb-6">
                      <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center border shadow-inner bg-emerald-50 text-emerald-600 border-emerald-100">
-                           <ShieldCheck size={28} />
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border shadow-inner ${
+                           isCompleted ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'
+                        }`}>
+                           {isCompleted ? <ShieldCheck size={28} /> : <XCircle size={28} />}
                         </div>
                         <div>
                            <div className="flex items-center gap-2 mb-1">
-                              <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-1">
-                                 <Check size={10} strokeWidth={3} /> Archived & Verified
+                              <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest flex items-center gap-1 ${
+                                 isCompleted ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                              }`}>
+                                 {isCompleted ? <Check size={10} strokeWidth={3} /> : <X size={10} strokeWidth={3} />}
+                                 {isCompleted ? 'Archived & Verified' : 'Incomplete / Missed'}
                               </span>
                               <span className="text-[9px] font-bold text-slate-400 uppercase">{selectedTask.category}</span>
                            </div>
                            <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">{selectedTask.title}</h2>
                         </div>
                      </div>
-                     <button onClick={() => setSelectedTask(null)} className="p-2 text-slate-400 hover:text-slate-900 rounded-full hover:bg-slate-100 transition-colors">
+                     <button onClick={() => setSelectedTask(null)} className="p-2 text-slate-400 hover:text-slate-900 rounded-full hover:bg-slate-100 transition-colors cursor-pointer">
                         <X size={20} />
                      </button>
                   </div>
@@ -274,7 +315,7 @@ export default function TabCompleted() {
                      {/* Key Metrics Grid */}
                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Completed / Executed By</span>
+                           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Assigned / Executed By</span>
                            <p className="text-xs font-black text-slate-900 uppercase">{completedByStr}</p>
                            <p className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">{completedByRole}</p>
                         </div>
@@ -287,12 +328,12 @@ export default function TabCompleted() {
 
                         {/* Completion Timestamp Box */}
                         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Completion Timestamp</span>
-                           <p className={`text-xs font-black uppercase ${timing.isOverdue ? 'text-rose-600' : 'text-emerald-600'}`}>
-                              {timing.timeOnly}
+                           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Status / Timestamp</span>
+                           <p className={`text-xs font-black uppercase ${!isCompleted ? 'text-rose-600' : timing.isOverdue ? 'text-rose-600' : 'text-emerald-600'}`}>
+                              {isCompleted ? timing.timeOnly : 'NOT COMPLETED'}
                            </p>
-                           <p className={`text-[9px] font-bold uppercase mt-0.5 ${timing.isOverdue ? 'text-rose-500' : 'text-emerald-600'}`}>
-                              {timing.dateOnly}
+                           <p className={`text-[9px] font-bold uppercase mt-0.5 ${!isCompleted ? 'text-rose-500' : timing.isOverdue ? 'text-rose-500' : 'text-emerald-600'}`}>
+                              {isCompleted ? timing.dateOnly : 'MISSED / PENDING'}
                            </p>
                         </div>
                      </div>
@@ -391,7 +432,7 @@ export default function TabCompleted() {
                   <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
                      <button
                        onClick={() => setSelectedTask(null)}
-                       className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase rounded-xl tracking-wider shadow-lg transition-all"
+                       className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase rounded-xl tracking-wider shadow-lg transition-all cursor-pointer"
                      >
                         Close Summary
                      </button>

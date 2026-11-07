@@ -7,25 +7,28 @@ import { waiterBasicsCourse } from '../training/mockQuizData';
 
 export default function TabPerformanceTraining({ employee }) {
   const [coursesList, setCoursesList] = useState([]);
-  const [courseProgress, setCourseProgress] = useState(() => {
-    try {
-      const saved = localStorage.getItem('rems_training_progress');
-      return saved ? JSON.parse(saved) : { 1: 0 };
-    } catch (e) {
-      return { 1: 0 };
-    }
-  });
+  const [courseProgress, setCourseProgress] = useState({});
   const [activeCourse, setActiveCourse] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchCoursesAndEnrollments();
+    if (employee?.id) {
+      fetchCoursesAndEnrollments();
+    }
   }, [employee]);
 
   const fetchCoursesAndEnrollments = async () => {
     setLoading(true);
     try {
-      // 1. Fetch custom masterclass courses
+      // 1. Load employee-specific progress from localStorage cache
+      const storageKey = `rems_training_progress_${employee.id}`;
+      let empProgress = {};
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) empProgress = JSON.parse(saved);
+      } catch (e) {}
+
+      // 2. Fetch custom masterclass courses
       const { data: coursesData } = await supabase.from('training_courses').select('*');
       let custom = [];
       if (coursesData && coursesData.length > 0) {
@@ -40,25 +43,32 @@ export default function TabPerformanceTraining({ employee }) {
             difficulty: s.difficulty || s.difficulty || 'Beginner',
             rating: 5.0,
             status: c.status || 'Mandatory',
-            progress: courseProgress[c.id] || 0,
+            progress: empProgress[c.id] || 0,
             youtubeId: s.youtubeId || c.youtubeId || 'dQw4w9WgXcQ',
             flashcards: s.flashcards || s.flashcards || [],
             quiz: s.quiz || s.quiz || { questions: [] },
             stepsList: s.stepsList || s.steps || [],
-            target_roles: s.target_roles || c.target_roles || ['Waiter', 'General Staff']
+            target_roles: s.target_roles || s.target_roles || []
           };
         });
       }
 
-      // 2. Fetch employee enrollments / progress
-      const { data: enrollData } = await supabase.from('training_enrollments').select('*');
-      const progMap = { ...courseProgress };
+      // 3. Fetch employee-specific enrollments strictly scoped to this employee.id
+      const { data: enrollData } = await supabase
+        .from('training_enrollments')
+        .select('*')
+        .eq('employee_id', employee.id);
+
+      const progMap = { ...empProgress };
       if (enrollData && enrollData.length > 0) {
         enrollData.forEach(en => {
           if (en.course_id) {
             progMap[en.course_id] = en.progress || 0;
           }
         });
+        setCourseProgress(progMap);
+        localStorage.setItem(storageKey, JSON.stringify(progMap));
+      } else {
         setCourseProgress(progMap);
       }
 
@@ -72,17 +82,18 @@ export default function TabPerformanceTraining({ employee }) {
           rating: 5.0,
           status: 'Mandatory',
           progress: progMap[1] || 0,
-          target_roles: ['Waiter', 'General Staff']
+          target_roles: ['Waiter']
         },
         ...custom
       ];
 
-      // 3. Filter courses matching employee role or general staff
+      // 4. Strict Role Filtering: Employee role must match target roles (or target roles empty/General)
       const empRole = (employee?.role || '').toLowerCase();
       const filtered = allCourses.filter(c => {
         const roles = (c.target_roles || []).map(r => r.toLowerCase());
-        if (roles.length === 0) return true;
+        if (roles.length === 0) return true; // if no roles specified, available to all
         if (roles.includes('general staff') || roles.includes('all staff')) return true;
+        // Check if employee role matches any target role
         return roles.some(r => empRole.includes(r) || r.includes(empRole));
       });
 
@@ -101,14 +112,18 @@ export default function TabPerformanceTraining({ employee }) {
       [courseId]: updatedProgress
     };
     setCourseProgress(newMap);
-    localStorage.setItem('rems_training_progress', JSON.stringify(newMap));
 
+    const storageKey = `rems_training_progress_${employee.id}`;
+    localStorage.setItem(storageKey, JSON.stringify(newMap));
+
+    // Save to Supabase training_enrollments strictly scoped to this employee_id
     try {
       const status = updatedProgress === 100 ? 'Completed' : 'In Progress';
       const { data: existing } = await supabase
         .from('training_enrollments')
         .select('id')
         .eq('course_id', courseId)
+        .eq('employee_id', employee.id)
         .maybeSingle();
 
       if (existing) {
@@ -119,10 +134,10 @@ export default function TabPerformanceTraining({ employee }) {
       } else {
         await supabase
           .from('training_enrollments')
-          .insert([{ course_id: courseId, progress: updatedProgress, status }]);
+          .insert([{ employee_id: employee.id, course_id: courseId, progress: updatedProgress, status }]);
       }
     } catch (err) {
-      console.error("Failed to sync enrollment progress:", err);
+      console.error("Failed to sync enrollment progress for employee:", err);
     }
   };
 
@@ -136,7 +151,7 @@ export default function TabPerformanceTraining({ employee }) {
          <div>
             <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Assigned Training & Certifications</h3>
             <p className="text-[10px] text-slate-500 font-medium mt-0.5">
-               Curriculum automatically filtered for <span className="font-bold text-slate-900">{employee?.role || 'Staff Member'}</span>.
+               Individual training profile for <span className="font-bold text-slate-900">{employee?.first_name} {employee?.last_name}</span> ({employee?.role || 'Staff Member'}).
             </p>
          </div>
       </div>
@@ -208,7 +223,7 @@ export default function TabPerformanceTraining({ employee }) {
 
                     <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{course.cat} Unit</span>
-                       <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Employee Profile</span>
+                       <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">{employee?.first_name}'s Profile</span>
                     </div>
                  </div>
               );

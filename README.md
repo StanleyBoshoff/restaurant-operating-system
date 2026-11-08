@@ -34,24 +34,29 @@ Current focus:
 
 # 🛠️ Core Modules
 
-## 1. Security & Authority Matrix (Pure Data-Driven)
-A professional, high-density permissions grid for enterprise-grade control.
-- **11-Level Hierarchy**: Inverted logic where higher numbers represent higher authority.
-- **Hidden System Admin (Lvl 11)**: A master account protected from UI-based changes to ensure system stability.
-- **Live Reactivity**: Permissions are physically removed from the UI the moment they are unticked in the database.
-- **Granular Directory Visibility**: Specify exactly which levels of staff a user is allowed to view (e.g., Owner can see everyone, Waiter can see nobody).
+## 1. Dashboard
+- **Management Command Center:** Real-time automated operational overview, staff on-duty tracking, pending leave counters, and quick-action menu drop-downs (Add Employee, Broadcast, Log Incident, Daily Cash-Up).
 
-## 2. Time & Attendance Hub (BCEA & Pay Cycle Automated)
-Total synchronization between the tablet terminal and payroll records.
-- **Configurable Pay Cycles**: Set under **Settings > Payroll Engine**. Accommodates industry-standard 21st-to-20th cycles or calendar-month cycles with automatic cross-month date calculations.
-- **Monthly Summary Matrix**: Real-time aggregation of pay cycle Regular Hours, Overtime, auto-exits, and verification progress.
-- **Hybrid Input System**: Supports rapid numeric keypad entry with auto-colon formatting and automatic focus jumping, alongside clickable native time pickers for mouse users.
-- **Monthly 195h Overtime Protocol**: Overtime triggers only after accumulating standard monthly hours (configurable, 195h default).
-- **Automated Meal Intervals**: Automatic 5-hour rule break deduction with customizable threshold and duration.
-- **PIN-Based Terminal**: Dedicated 5-digit high-density clocking terminal with seconds-accurate tracking.
-- **Background Autosave**: Zero-work-loss interaction; data syncs to the cloud instantly.
+## 2. Employees
+- **Employee Directory & Profiles:** Full personnel management with comprehensive 8-tab individual employee profiles:
+  - *Details, Documents (Expiry tracking), Leave, Time & Attendance, Performance & Training (Role-filtered masterclasses), Warnings (Disciplinary history), Tasks & Notes, and Audit Log.*
+- **Add Employee Wizard:** Onboarding workflow for new staff members.
 
-## 3. Training & Masterclass Studio
+## 3. Time & Attendance
+- **BCEA & Pay Cycle Automated Hub:**
+  - *Weekly Register & Live Clocking Terminal:* 5-digit PIN clocking with seconds-accurate tracking.
+  - *Monthly Summary & Register:* Real-time workforce summary mirroring the active store pay cycle (e.g. 21st to 20th).
+  - *Statutory Overtime Engine:* Automatically enforces the monthly **195.0-hour standard** (overtime triggers strictly above 195h).
+  - *Payroll Export Engine:* One-click data generation for Pastel, Sage, and Xero.
+
+## 4. Leave
+- **Leave Management Hub:** Track leave requests, balances, visual team calendar, leave approvals, and custom report builders.
+
+## 5. Disciplinary
+- **Legal Shield & Universal Disciplinary Engine (`Judge.js` / `UniversalEngine.js`):**
+  - Automated fact-based assessment and generation of disciplinary notices, warnings, and record tracking in compliance with South African labor law and CCMA standards.
+
+## 6. Training & Masterclass Studio
 Comprehensive learning and development ecosystem for restaurant staff.
 - **Masterclass Studio (Course Creator)**: Tabular management view with modal-based Create & Edit popup workflows.
 - **Flexible Curriculum Builder**: Combine video lessons, study flashcards (front/back definition decks), and assessment quizzes into any custom course.
@@ -60,17 +65,28 @@ Comprehensive learning and development ecosystem for restaurant staff.
 - **Anti-Cheat Quiz Randomizer Engine**: Automatically shuffles question order and answer option positions (A, B, C, D) on every run.
 - **90% Pass Threshold & Review Mode**: Enforces professional standards with percentage scoring, clear pass/fail results, and interactive answer review walkthroughs.
 
-## 4. Tasks & Archived Audit Hub
+## 7. Tasks & Checklists
 Complete oversight of operational compliance and historical logs.
 - **Archived Tasks Sub-Tabs**: Filter history by **All**, **Completed**, **Incomplete**, and **Not done**.
 - **Precise Report Inspection**: Direct task-to-submission relational mapping (`task_id`) ensuring each task instance loads its exact verification report.
 
-## 5. Labour & Statutory Reporting
-Audit-ready data generation for owners, HR, and legal counsel.
-- **Cycle-Aware Reports**: Reports automatically initialize to the store's active payroll cycle period.
-- **Labour Analytics**: Tardiness Analysis, Early Departure logs, and Total Hours Worked summaries.
-- **Variance Tracking**: Scheduled vs. Actual hour comparison and Labor Cost vs. Budget variance.
-- **CCMA Bundle**: AWOL audits, 36-month sick cycle exhaustion reports, and Public Holiday lieu ledgers.
+## 8. Forms
+- **Operational Submissions:** Daily Cash-Up financial reconciliation, Incident logs, Damage reports, and Maintenance logs.
+
+## 9. Health & Safety
+- **Safety & Compliance Records:** First aid registers, accident logs, incident reports, fire drill records, near-miss logs, and equipment safety checks.
+
+## 10. Communication
+- **Broadcast Hub:** Company announcements, staff notices, operational policies, and read-receipt tracking.
+
+## 11. Reports
+- **Advanced Analytics Suite:** 20+ auditable reports including Tardiness Analysis, Shift Variance, Overtime Tracking, and Labor Cost vs. Budget.
+
+## 12. Settings
+- **Enterprise Control Panel:**
+  - *11-Level Security & Authority Matrix:* Inverted security hierarchy with live real-time Reactivity ("The Pulse").
+  - *Company Payroll Settings:* Configurable monthly overtime thresholds, lunch break deductions, and payroll cycle start days.
+  - *Master Data Management:* Branches, departments, positions, employment types, leave types, warning types, and document types.
 
 ---
 
@@ -105,7 +121,7 @@ Restaurise replaces paper files with a legally "Store-Proof" platform. It is des
 
 ### Uploading to GitHub
 1. **Stage Changes**: `git add .`
-2. **Commit**: `git commit -m "feat: update README with Masterclass Studio, Task Archival Hub, and per-profile training tracking"`
+2. **Commit**: `git commit -m "feat: update README with comprehensive overview of all 12 sidebar modules"`
 3. **Push to Remote**:
    ```bash
    git push origin main

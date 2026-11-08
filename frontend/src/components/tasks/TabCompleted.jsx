@@ -87,7 +87,7 @@ export default function TabCompleted() {
 
         setChecklistItems(items || []);
 
-        // 2. Fetch Submission strictly matching this task's specific due date
+        // 2. Fetch Submission for this completed task (exact date match with fallback to latest submission)
         if (isCompleted) {
           const taskDateStr = task.due_date ? task.due_date.split('T')[0] : null;
 
@@ -98,12 +98,11 @@ export default function TabCompleted() {
             .order('completed_at', { ascending: false });
 
           if (subs && subs.length > 0) {
-            // Find submission whose completed_at date matches the task due date
             const matchingSub = taskDateStr
               ? subs.find(s => s.completed_at && s.completed_at.split('T')[0] === taskDateStr)
               : null;
 
-            setChecklistSubmission(matchingSub || null);
+            setChecklistSubmission(matchingSub || subs[0]);
           }
         }
       } catch (err) {

@@ -248,6 +248,7 @@ CREATE TABLE IF NOT EXISTS checklist_items (
 CREATE TABLE IF NOT EXISTS checklist_submissions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     checklist_id UUID REFERENCES checklists(id),
+    task_id UUID REFERENCES tasks(id),
     submitted_by_id UUID REFERENCES employees(id),
     submitted_by_name TEXT,
     submission_data JSONB,

@@ -101,25 +101,31 @@ export const getAssignedStaffForChecklist = async (permissionId) => {
 };
 
 /**
- * Submits a completed checklist with full accountability metadata.
+ * Submits a completed checklist with full accountability metadata and task linkage.
  */
-export const submitChecklist = async (checklistName, submissionData, managerId, managerName, startedAt) => {
+export const submitChecklist = async (checklistName, submissionData, managerId, managerName, startedAt, taskId = null) => {
   const { data: checklist } = await supabase
     .from('checklists')
     .select('id')
     .eq('name', checklistName)
     .maybeSingle();
 
+  const insertPayload = {
+    checklist_id: checklist?.id,
+    submitted_by_id: managerId,
+    submitted_by_name: managerName,
+    submission_data: submissionData,
+    started_at: startedAt,
+    completed_at: new Date().toISOString()
+  };
+
+  if (taskId) {
+    insertPayload.task_id = taskId;
+  }
+
   const { data, error } = await supabase
     .from('checklist_submissions')
-    .insert([{
-      checklist_id: checklist?.id,
-      submitted_by_id: managerId,
-      submitted_by_name: managerName,
-      submission_data: submissionData,
-      started_at: startedAt,
-      completed_at: new Date().toISOString()
-    }])
+    .insert([insertPayload])
     .select()
     .single();
 

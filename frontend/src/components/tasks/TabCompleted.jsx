@@ -67,7 +67,7 @@ export default function TabCompleted() {
     }
   };
 
-  // Fetch Checklist Items and Submission details for this specific task instance
+  // Fetch Checklist Items and Submission details strictly linked to this specific task instance id
   const handleOpenSummary = async (task) => {
     setSelectedTask(task);
     setChecklistItems([]);
@@ -87,23 +87,31 @@ export default function TabCompleted() {
 
         setChecklistItems(items || []);
 
-        // 2. Fetch Submission for this completed task (exact date match with fallback to latest submission)
+        // 2. Fetch Submission strictly linked to this task instance
         if (isCompleted) {
-          const taskDateStr = task.due_date ? task.due_date.split('T')[0] : null;
-
-          const { data: subs } = await supabase
+          let subData = null;
+          const { data: directSub } = await supabase
             .from('checklist_submissions')
             .select('*')
-            .eq('checklist_id', task.checklist_id)
-            .order('completed_at', { ascending: false });
+            .eq('task_id', task.id)
+            .maybeSingle();
 
-          if (subs && subs.length > 0) {
-            const matchingSub = taskDateStr
-              ? subs.find(s => s.completed_at && s.completed_at.split('T')[0] === taskDateStr)
-              : null;
+          if (directSub) {
+            subData = directSub;
+          } else {
+            // Fallback for older records: fetch latest submission for this checklist
+            const { data: subs } = await supabase
+              .from('checklist_submissions')
+              .select('*')
+              .eq('checklist_id', task.checklist_id)
+              .order('completed_at', { ascending: false });
 
-            setChecklistSubmission(matchingSub || subs[0]);
+            if (subs && subs.length > 0) {
+              subData = subs[0];
+            }
           }
+
+          setChecklistSubmission(subData);
         }
       } catch (err) {
         console.error("Error loading checklist report details:", err.message);
@@ -423,7 +431,7 @@ export default function TabCompleted() {
                      </div>
 
                      {/* Compliance / Audit Footer note */}
-                     <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-3">
+                     <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-center gap-3">
                         <ShieldCheck size={18} className="text-amber-700 shrink-0 mt-0.5" />
                         <p className="text-[10px] text-amber-900 font-medium leading-relaxed">
                            This task log is cryptographically recorded and store-proofed in compliance with CCMA statutory requirements and South African labor record retention policies.

@@ -104,11 +104,12 @@ export default function ChecklistRunner() {
     }
 
     try {
-      await submitChecklist(checklist.name, submissionData, currentUser.id, `${currentUser.first_name} ${currentUser.last_name}`, startedAt);
-
-      // Update Task status if navigated from tasks
       const searchParams = new URLSearchParams(window.location.search);
       const taskId = searchParams.get('taskId');
+
+      await submitChecklist(checklist.name, submissionData, currentUser.id, `${currentUser.first_name} ${currentUser.last_name}`, startedAt, taskId);
+
+      // Update Task status if navigated from tasks
       if (taskId) {
           await supabase.from('tasks').update({
               status: 'Completed',

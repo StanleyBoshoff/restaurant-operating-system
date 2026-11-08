@@ -67,7 +67,7 @@ export default function TabCompleted() {
     }
   };
 
-  // Fetch Checklist Items and Submission details strictly linked to this specific task instance id
+  // Fetch Checklist Items and Submission details robustly matching task completion timestamp
   const handleOpenSummary = async (task) => {
     setSelectedTask(task);
     setChecklistItems([]);
@@ -87,31 +87,33 @@ export default function TabCompleted() {
 
         setChecklistItems(items || []);
 
-        // 2. Fetch Submission strictly linked to this task instance
+        // 2. Fetch Submission using closest timestamp matching to task.completed_at
         if (isCompleted) {
-          let subData = null;
-          const { data: directSub } = await supabase
+          const { data: subs, error } = await supabase
             .from('checklist_submissions')
             .select('*')
-            .eq('task_id', task.id)
-            .maybeSingle();
+            .eq('checklist_id', task.checklist_id)
+            .order('completed_at', { ascending: false });
 
-          if (directSub) {
-            subData = directSub;
-          } else {
-            // Fallback for older records: fetch latest submission for this checklist
-            const { data: subs } = await supabase
-              .from('checklist_submissions')
-              .select('*')
-              .eq('checklist_id', task.checklist_id)
-              .order('completed_at', { ascending: false });
-
-            if (subs && subs.length > 0) {
-              subData = subs[0];
+          if (!error && subs && subs.length > 0) {
+            let bestSub = subs[0];
+            if (task.completed_at) {
+              const taskTime = new Date(task.completed_at).getTime();
+              let minDiff = Infinity;
+              subs.forEach(s => {
+                if (s.completed_at) {
+                  const subTime = new Date(s.completed_at).getTime();
+                  const diff = Math.abs(taskTime - subTime);
+                  // Within 24 hours window, pick the closest submission
+                  if (diff < minDiff && diff < 86400000) {
+                    minDiff = diff;
+                    bestSub = s;
+                  }
+                }
+              });
             }
+            setChecklistSubmission(bestSub);
           }
-
-          setChecklistSubmission(subData);
         }
       } catch (err) {
         console.error("Error loading checklist report details:", err.message);

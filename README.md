@@ -6,14 +6,17 @@ A professional-grade, industry-specific Employee Management System (EMS) designe
 
 # 🚀 Project Status
 
-🟢 **Active Development (Phase 5: Masterclass Studio & Enterprise Scale)**
+🟢 **Active Development (Phase 5: Masterclass Studio, Task Archival Hub & Enterprise Scale)**
 
-The system has matured into a legally authoritative **Management Command Center** with automated statutory enforcement, configurable payroll engines, real-time security synchronization, and interactive masterclass training modules.
+The system has matured into a legally authoritative **Management Command Center** with automated statutory enforcement, configurable payroll engines, real-time security synchronization, interactive masterclass training modules, and robust task archival inspection suites.
 
 Current focus:
-- 🪄 **Masterclass Studio (Course Creator)**: Interactive curriculum builder allowing managers to design, edit, and publish custom training courses with flexible step builders.
-- 🎯 **Target Audience Filtering**: Role and department checkboxes (Waiters, Bartender, Kitchen Staff, etc.) ensuring courses are assigned strictly to relevant personnel.
-- 🔀 **Anti-Cheat Quiz Randomizer Engine**: Dynamically shuffles question order and answer option positions (A, B, C, D) on every single test run to prevent cheating and memorization.
+- 📋 **Archived Tasks Hub**: Advanced task audit interface featuring sub-tabs for **All**, **Completed**, **Incomplete**, and **Not done**, with distinct green checkmark badges (`CheckCircle2`) and red cross icon badges (`XCircle`).
+- 🔗 **Precise Task-to-Submission Linkage**: Direct relational mapping (`task_id`) ensuring every completed task instance opens its exact unique checklist verification report and protocol inspection log.
+- 🪄 **Masterclass Studio (Course Creator)**: Interactive curriculum builder with modal-based Create & Edit workflows, flexible step builders (video lessons, study flashcards, and assessment quizzes).
+- 👤 **Per-Profile Training & Certification Tracking**: Training progress and certification status strictly scoped to each employee's unique `employee_id` in Supabase and local storage (`rems_training_progress_${employee.id}`).
+- 🎯 **Target Audience Filtering**: Role and department checkboxes (Waiters, Bartenders, Kitchen Staff, etc.) ensuring courses are assigned strictly to relevant personnel.
+- 🔀 **Anti-Cheat Quiz Randomizer Engine**: Dynamically shuffles question order and answer option positions (A, B, C, D) on every single test run to prevent cheating and memorization with a strict **90% pass threshold**.
 - 📖 **Answer Review Mode**: Trainees can review their completed assessment submissions, inspect correct solutions, and learn from feedback before retaking.
 - 🛡️ **Security Matrix (11 Levels)**: Granular, 11-level hierarchy where Level 11 (System Administrator) is a hidden master account, and Level 10 down to 1 are fully customizable via the UI.
 - ⚡ **Real-Time Sync (The Pulse)**: Instant application-wide permission updates. Changing a "tick" in the master matrix immediately reflects in all active browser sessions without logout or refresh.
@@ -53,20 +56,21 @@ Comprehensive learning and development ecosystem for restaurant staff.
 - **Masterclass Studio (Course Creator)**: Tabular management view with modal-based Create & Edit popup workflows.
 - **Flexible Curriculum Builder**: Combine video lessons, study flashcards (front/back definition decks), and assessment quizzes into any custom course.
 - **Target Audience Role Filtering**: Restrict courses to specific roles (Waiters, Bartenders, Chefs, Kitchen Staff, etc.).
+- **Per-Profile Tracking**: Training progress and certifications stored individually per employee profile (`employee_id`).
 - **Anti-Cheat Quiz Randomizer Engine**: Automatically shuffles question order and answer option positions (A, B, C, D) on every run.
 - **90% Pass Threshold & Review Mode**: Enforces professional standards with percentage scoring, clear pass/fail results, and interactive answer review walkthroughs.
 
-## 4. Labour & Statutory Reporting
+## 4. Tasks & Archived Audit Hub
+Complete oversight of operational compliance and historical logs.
+- **Archived Tasks Sub-Tabs**: Filter history by **All**, **Completed**, **Incomplete**, and **Not done**.
+- **Precise Report Inspection**: Direct task-to-submission relational mapping (`task_id`) ensuring each task instance loads its exact verification report.
+
+## 5. Labour & Statutory Reporting
 Audit-ready data generation for owners, HR, and legal counsel.
 - **Cycle-Aware Reports**: Reports automatically initialize to the store's active payroll cycle period.
 - **Labour Analytics**: Tardiness Analysis, Early Departure logs, and Total Hours Worked summaries.
 - **Variance Tracking**: Scheduled vs. Actual hour comparison and Labor Cost vs. Budget variance.
 - **CCMA Bundle**: AWOL audits, 36-month sick cycle exhaustion reports, and Public Holiday lieu ledgers.
-
-## 5. Workforce Operations
-- **Connected Calendar**: Unified store availability matrix with continuous leave bars.
-- **Digital Checklists**: Opening/Closing protocols with mandatory safety items and manager sign-off.
-- **Labor Budgeting**: Define monthly hour and cost limits per department.
 
 ---
 
@@ -101,7 +105,7 @@ Restaurise replaces paper files with a legally "Store-Proof" platform. It is des
 
 ### Uploading to GitHub
 1. **Stage Changes**: `git add .`
-2. **Commit**: `git commit -m "feat: add Masterclass Studio course creator, anti-cheat quiz randomizer, and answer review mode"`
+2. **Commit**: `git commit -m "feat: update README with Masterclass Studio, Task Archival Hub, and per-profile training tracking"`
 3. **Push to Remote**:
    ```bash
    git push origin main

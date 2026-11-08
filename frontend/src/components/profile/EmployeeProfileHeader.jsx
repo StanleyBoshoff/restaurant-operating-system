@@ -1,17 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, MapPin, Briefcase, ChevronLeft, Zap, Edit, FileUp, Calendar, AlertCircle, Clock, ChevronDown } from 'lucide-react';
+import { User, MapPin, Briefcase, ChevronLeft, Zap, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { canDo } from '../../utils/permissionService';
+import { useAuth } from '../../context/AuthContext';
+import { getQuickActions } from '../../utils/quickActionsConfig';
 
 export default function EmployeeProfileHeader({ employee }) {
     const navigate = useNavigate();
+    const { user: currentUser } = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef(null);
-
-    // Mock current user for permission check (Replace with real Auth user later)
-    const currentUser = {
-        role_data: { authority_level: 10 } // Master Tech bypass
-    };
 
     // Close menu when clicking outside
     useEffect(() => {
@@ -26,24 +24,20 @@ export default function EmployeeProfileHeader({ employee }) {
 
     if (!employee) return null;
 
-    const quickActions = [
-        { id: 'can_edit_personnel', label: 'Edit Profile', icon: Edit, path: 'details', color: 'text-blue-600' },
-        { id: 'can_submit_forms', label: 'Upload Document', icon: FileUp, path: 'documents', color: 'text-emerald-600' },
-        { id: 'can_launch_wizard', label: 'Issue Warning', icon: AlertCircle, path: 'warnings', color: 'text-rose-600' },
-        { id: 'can_approve_leave', label: 'Log Leave', icon: Calendar, path: 'leave', color: 'text-amber-600' },
-        { id: 'can_view_timesheets', label: 'Attendance', icon: Clock, path: 'time-attendance', color: 'text-indigo-600' },
-    ].filter(action => canDo(currentUser, action.id));
+    const quickActions = getQuickActions(currentUser);
 
     return (
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-6">
             <div className="h-24 bg-slate-900 border-b border-slate-800 relative rounded-t-2xl">
-                <button
-                    onClick={() => navigate('/employees')}
-                    className="absolute top-4 left-4 bg-white/10 hover:bg-white/20 text-white p-2 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium backdrop-blur-sm"
-                >
-                    <ChevronLeft size={16} />
-                    Back to Directory
-                </button>
+                {canDo(currentUser, 'can_view_all_staff') && (
+                    <button
+                        onClick={() => navigate('/employees')}
+                        className="absolute top-4 left-4 bg-white/10 hover:bg-white/20 text-white p-2 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium backdrop-blur-sm"
+                    >
+                        <ChevronLeft size={16} />
+                        Back to Directory
+                    </button>
+                )}
             </div>
 
             <div className="px-6 pb-6 relative">
@@ -101,7 +95,7 @@ export default function EmployeeProfileHeader({ employee }) {
                             <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                                 <div className="p-2 bg-slate-50 border-b border-slate-100">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Personnel Actions</span>
-                                </div>
+                                 </div>
                                 <div className="p-1">
                                     {quickActions.map((action) => (
                                         <button

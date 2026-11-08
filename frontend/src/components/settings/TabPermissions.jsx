@@ -85,9 +85,30 @@ export default function TabPermissions() {
   const [levels, setLevels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [showFloatingCommit, setShowFloatingCommit] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 10000); // 10 seconds
+  };
 
   useEffect(() => {
     fetchMatrix();
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 250) {
+        setShowFloatingCommit(true);
+      } else {
+        setShowFloatingCommit(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const fetchMatrix = async () => {
@@ -156,9 +177,9 @@ export default function TabPermissions() {
     try {
       await saveAuthorityMatrix(defaults);
       await fetchMatrix();
-      alert("✅ Factory defaults restored. Database is now in sync.");
+      showToast("✅ Factory defaults restored. Database is now in sync.");
     } catch (err) {
-      alert("❌ Failed to restore: " + err.message);
+      showToast("❌ Failed to restore: " + err.message, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -186,10 +207,10 @@ export default function TabPermissions() {
       // update all roles (Waiter, GM, etc) in the background.
       await saveAuthorityMatrix(levels);
 
-      alert("✅ Master Security Matrix committed successfully. All roles have been updated.");
+      showToast("✅ Master Security Matrix committed successfully. All roles have been updated.");
       await fetchMatrix(); // Refresh to confirm
     } catch (err) {
-      alert("❌ Sync failed: " + err.message);
+      showToast("❌ Sync failed: " + err.message, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -222,12 +243,11 @@ export default function TabPermissions() {
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-3xl shadow-xl overflow-hidden flex flex-col max-h-[70vh]">
-        <div className="overflow-auto no-scrollbar">
-          <table className="w-full border-collapse table-fixed min-w-[1200px]">
-            <thead className="sticky top-0 z-40 bg-slate-900 shadow-md">
+      <div className="bg-white border border-slate-200 rounded-3xl shadow-xl overflow-hidden">
+          <table className="w-full border-collapse table-fixed">
+            <thead className="sticky top-16 z-40 bg-slate-900 shadow-md">
               <tr className="text-white">
-                <th className="sticky left-0 z-50 bg-slate-900 w-64 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-left border-r border-slate-800">
+                <th className="w-72 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-left border-r border-slate-800">
                   Ability / Section
                 </th>
                 {levels.map(l => (
@@ -243,15 +263,15 @@ export default function TabPermissions() {
             <tbody className="divide-y divide-slate-100">
               {ABILITIES.map(group => (
                 <React.Fragment key={group.group}>
-                  <tr className="bg-slate-50/80 sticky top-[48px] z-30 shadow-sm">
-                    <td colSpan={11} className="sticky left-0 z-20 px-6 py-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+                  <tr className="bg-slate-50/80 sticky top-[112px] z-30 shadow-sm">
+                    <td colSpan={11} className="px-6 py-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] bg-slate-50 border-b border-slate-100 flex items-center gap-2">
                       <group.icon size={12} />
                       {group.group}
                     </td>
                   </tr>
                   {group.items.map(item => (
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
-                      <td className="sticky left-0 z-20 bg-white group-hover:bg-slate-50 px-6 py-3 border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                      <td className="w-72 bg-white group-hover:bg-slate-50 px-6 py-3 border-r border-slate-100">
                         <p className="text-[10px] font-bold text-slate-700 leading-tight">{item.label}</p>
                         <p className="text-[7px] text-slate-400 font-medium leading-tight mt-0.5 uppercase tracking-tighter">{item.desc}</p>
                       </td>
@@ -282,8 +302,33 @@ export default function TabPermissions() {
               ))}
             </tbody>
           </table>
-        </div>
       </div>
+
+      {/* 🚀 Floating Commit Button */}
+      {showFloatingCommit && (
+        <div className="fixed bottom-8 right-8 z-50 flex items-center gap-3 bg-slate-900/95 backdrop-blur-md text-white px-6 py-4 rounded-2xl shadow-2xl border border-slate-700 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest">Security Matrix</span>
+            <span className="text-xs font-bold text-slate-300">Unsaved changes?</span>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex items-center gap-2 px-6 py-3 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 disabled:opacity-50"
+          >
+            <Save size={16} />
+            {isSaving ? 'Syncing...' : 'Commit Matrix'}
+          </button>
+        </div>
+      )}
+
+      {/* 🚀 Bottom-Left Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-8 left-8 z-50 flex items-center gap-3 bg-slate-900/95 backdrop-blur-md text-white px-6 py-4 rounded-2xl shadow-2xl border border-slate-700 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+          <span className="text-xs font-bold">{toast.message}</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -191,9 +191,9 @@ export default function TabMonthlyRegister({ lockedEmployeeId = null }) {
   const isMasterTech = currentUser?.role_data?.authority_level >= 10;
 
   // Permissions
-  const canEditDraft = (isSystemAdmin || isMasterTech) || (canDo(currentUser, 'can_edit_attendance_register') && !isSelf);
-  const canEditCommitted = (isSystemAdmin || isMasterTech) || (canDo(currentUser, 'can_edit_committed_timesheets') && !isSelf);
-  const canEditTerminal = (isSystemAdmin || isMasterTech) || (canDo(currentUser, 'can_edit_terminal_records') && !isSelf);
+  const canEditDraft = (isSystemAdmin || isMasterTech) || canDo(currentUser, 'can_edit_attendance_register');
+  const canEditCommitted = (isSystemAdmin || isMasterTech) || canDo(currentUser, 'can_edit_committed_timesheets');
+  const canEditTerminal = (isSystemAdmin || isMasterTech) || canDo(currentUser, 'can_edit_terminal_records');
 
   useEffect(() => {
     if (!lockedEmployeeId) fetchEmployees();

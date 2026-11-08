@@ -279,7 +279,8 @@ export default function Login() {
     try {
       await login(email, password);
     } catch (err) {
-      setLoginError(err.message || 'Authentication failed.');
+      const errMsg = err?.message || err?.error_description || (typeof err === 'object' && Object.keys(err).length > 0 ? JSON.stringify(err) : null) || 'Authentication failed.';
+      setLoginError(errMsg);
     } finally {
       setLoginLoading(false);
     }

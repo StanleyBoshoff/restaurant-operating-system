@@ -10,9 +10,14 @@ import StatusBadge from '../common/StatusBadge';
 import { supabase } from '../../supabaseClient';
 import { calculateCompliance } from '../../utils/complianceHelper';
 import { calculateAnnualLeave } from '../../utils/leaveEngine';
+import { useAuth } from '../../context/AuthContext';
+import { canDo } from '../../utils/permissionService';
+import { getQuickActions } from '../../utils/quickActionsConfig';
 
 export default function TabOverview({ employee, onRefresh }) {
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
+  const quickActions = getQuickActions(currentUser);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     documents: { total: 0, expired: 0, dueSoon: 0, compliance: null },
@@ -289,21 +294,15 @@ export default function TabOverview({ employee, onRefresh }) {
             </div>
 
             <div className="grid grid-cols-1 gap-2">
-              <button onClick={() => navigate('details')} className="w-full flex items-center gap-3 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition-colors">
-                <Edit size={14} /> Edit Profile
-              </button>
-              <button onClick={() => navigate('documents')} className="w-full flex items-center gap-3 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition-colors">
-                <FileUp size={14} /> Upload Document
-              </button>
-              <button onClick={() => navigate('leave')} className="w-full flex items-center gap-3 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition-colors">
-                <Calendar size={14} /> Log Leave
-              </button>
-              <button onClick={() => navigate('warnings')} className="w-full flex items-center gap-3 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition-colors">
-                <AlertCircle size={14} /> Issue Warning
-              </button>
-              <button onClick={() => navigate('tasks-notes')} className="w-full flex items-center gap-3 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition-colors">
-                <Plus size={14} /> Add Note / Task
-              </button>
+              {quickActions.map((action) => (
+                <button
+                  key={action.label}
+                  onClick={() => navigate(action.path)}
+                  className="w-full flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition-colors"
+                >
+                  <action.icon size={14} className={action.color} /> {action.label}
+                </button>
+              ))}
             </div>
           </div>
 

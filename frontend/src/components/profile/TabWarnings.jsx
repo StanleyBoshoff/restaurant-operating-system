@@ -5,8 +5,11 @@ import {
   Plus, Trash2, X, Download, FileUp, Info, Gavel, History, ChevronRight, Check, Search, Wand2, AlertTriangle, Filter, ArrowUpDown
 } from "lucide-react";
 import SummaryCard from "../common/SummaryCard";
+import { useAuth } from "../../context/AuthContext";
+import { canDo } from "../../utils/permissionService";
 
 export default function TabWarnings({ employee }) { 
+  const { user: currentUser } = useAuth();
   const [warningsList, setWarningsList] = useState([]);
   const [loading, setLoading] = useState(false); 
   const [isUploading, setIsUploading] = useState(false);
@@ -139,12 +142,14 @@ export default function TabWarnings({ employee }) {
           <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Disciplinary History</h3>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Official warnings and recorded infractions</p>
         </div>
-        <button
-          onClick={() => setIsUploading(true)}
-          className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-slate-800 transition-all active:scale-95"
-        >
-          <FileUp size={16} /> Upload Signed Warning
-        </button>
+        {canDo(currentUser, 'can_manage_disciplinary') && (
+          <button
+            onClick={() => setIsUploading(true)}
+            className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg hover:bg-slate-800 transition-all active:scale-95"
+          >
+            <FileUp size={16} /> Upload Signed Warning
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6">
@@ -198,9 +203,11 @@ export default function TabWarnings({ employee }) {
                       ) : (
                         <span className="p-2 text-rose-300 italic text-[9px] uppercase font-bold">No Proof</span>
                       )}
-                      <button onClick={() => deleteWarning(w.id)} className="p-2 bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-slate-100 transition-all opacity-0 group-hover:opacity-100">
-                        <Trash2 size={14} />
-                      </button>
+                      {canDo(currentUser, 'can_manage_disciplinary') && (
+                        <button onClick={() => deleteWarning(w.id)} className="p-2 bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl border border-slate-100 transition-all opacity-0 group-hover:opacity-100">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

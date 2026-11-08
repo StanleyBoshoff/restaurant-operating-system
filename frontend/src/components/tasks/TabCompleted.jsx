@@ -67,11 +67,13 @@ export default function TabCompleted() {
     }
   };
 
-  // Fetch Checklist Items and Submission details when a task is opened
+  // Fetch Checklist Items and Submission details for this specific task instance
   const handleOpenSummary = async (task) => {
     setSelectedTask(task);
     setChecklistItems([]);
     setChecklistSubmission(null);
+
+    const isCompleted = (task.status || '').toLowerCase() === 'completed';
 
     if (task.checklist_id) {
       setDetailLoading(true);
@@ -85,15 +87,24 @@ export default function TabCompleted() {
 
         setChecklistItems(items || []);
 
-        // 2. Fetch Latest/Matching Submission
-        const { data: subs } = await supabase
-          .from('checklist_submissions')
-          .select('*')
-          .eq('checklist_id', task.checklist_id)
-          .order('completed_at', { ascending: false });
+        // 2. Fetch Submission strictly matching this task's specific due date
+        if (isCompleted) {
+          const taskDateStr = task.due_date ? task.due_date.split('T')[0] : null;
 
-        if (subs && subs.length > 0) {
-          setChecklistSubmission(subs[0]);
+          const { data: subs } = await supabase
+            .from('checklist_submissions')
+            .select('*')
+            .eq('checklist_id', task.checklist_id)
+            .order('completed_at', { ascending: false });
+
+          if (subs && subs.length > 0) {
+            // Find submission whose completed_at date matches the task due date
+            const matchingSub = taskDateStr
+              ? subs.find(s => s.completed_at && s.completed_at.split('T')[0] === taskDateStr)
+              : null;
+
+            setChecklistSubmission(matchingSub || null);
+          }
         }
       } catch (err) {
         console.error("Error loading checklist report details:", err.message);
@@ -171,9 +182,9 @@ export default function TabCompleted() {
                   <tr className="bg-slate-50 border-b border-slate-200">
                      <th className="pl-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Operation / Title</th>
                      <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Category</th>
-                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Completed By</th>
+                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Assigned To</th>
                      <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Due Date & Time</th>
-                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Completed At</th>
+                     <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
                      <th className="pr-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
                   </tr>
                </thead>
@@ -185,12 +196,10 @@ export default function TabCompleted() {
                   ) : filteredTasks.map(task => {
                     const timing = getTaskTimingDetails(task);
                     const isCompleted = (task.status || '').toLowerCase() === 'completed';
-                    const completedByStr = task.employees
+                    const assignedToStr = task.employees
                       ? `${task.employees.first_name} ${task.employees.last_name}`
-                      : task.checklists?.checklist_submissions?.[0]?.submitted_by_name
-                      ? task.checklists.checklist_submissions[0].submitted_by_name
                       : 'Staff Operator';
-                    const completedByRole = task.employees?.role || 'Staff Operator';
+                    const assignedToRole = task.employees?.role || 'Staff Operator';
 
                     return (
                       <tr key={task.id} className="hover:bg-slate-50/75 transition-colors group cursor-pointer" onClick={() => handleOpenSummary(task)}>
@@ -219,11 +228,11 @@ export default function TabCompleted() {
                          <td className="px-4 py-4">
                             <div className="flex items-center gap-2">
                                <div className="w-7 h-7 bg-slate-100 rounded-lg flex items-center justify-center font-black text-[9px] text-slate-600">
-                                  {completedByStr[0]}
+                                  {assignedToStr[0]}
                                </div>
                                <div>
-                                  <p className="text-[10px] font-black text-slate-800 uppercase leading-none">{completedByStr}</p>
-                                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{completedByRole}</p>
+                                  <p className="text-[10px] font-black text-slate-800 uppercase leading-none">{assignedToStr}</p>
+                                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{assignedToRole}</p>
                                </div>
                             </div>
                          </td>
@@ -235,12 +244,12 @@ export default function TabCompleted() {
                             </span>
                          </td>
 
-                         {/* COMPLETED AT */}
+                         {/* STATUS */}
                          <td className="px-4 py-4 text-center">
-                            <span className={`text-[10px] font-black ${
+                            <span className={`text-[10px] font-black uppercase ${
                                !isCompleted ? 'text-rose-600' : timing.isOverdue ? 'text-rose-600' : 'text-emerald-600'
                             }`}>
-                               {isCompleted ? timing.completedFormatted : 'NOT COMPLETED'}
+                               {isCompleted ? (timing.isOverdue ? 'COMPLETED (OVERDUE)' : 'COMPLETED') : (task.status || 'NOT COMPLETED')}
                             </span>
                          </td>
 
@@ -264,14 +273,10 @@ export default function TabCompleted() {
       {selectedTask && (() => {
          const timing = getTaskTimingDetails(selectedTask);
          const isCompleted = (selectedTask.status || '').toLowerCase() === 'completed';
-         const completedByStr = selectedTask.employees
+         const assignedToStr = selectedTask.employees
            ? `${selectedTask.employees.first_name} ${selectedTask.employees.last_name}`
-           : checklistSubmission?.submitted_by_name
-           ? checklistSubmission.submitted_by_name
-           : selectedTask.checklists?.checklist_submissions?.[0]?.submitted_by_name
-           ? selectedTask.checklists.checklist_submissions[0].submitted_by_name
            : 'Staff Operator';
-         const completedByRole = selectedTask.employees?.role || 'Staff Operator';
+         const assignedToRole = selectedTask.employees?.role || 'Staff Operator';
 
          return (
             <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
@@ -315,9 +320,9 @@ export default function TabCompleted() {
                      {/* Key Metrics Grid */}
                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Assigned / Executed By</span>
-                           <p className="text-xs font-black text-slate-900 uppercase">{completedByStr}</p>
-                           <p className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">{completedByRole}</p>
+                           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Assigned To</span>
+                           <p className="text-xs font-black text-slate-900 uppercase">{assignedToStr}</p>
+                           <p className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">{assignedToRole}</p>
                         </div>
 
                         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
@@ -326,7 +331,7 @@ export default function TabCompleted() {
                            <p className="text-[9px] font-bold text-slate-500 uppercase mt-0.5">Deadline: {selectedTask.deadline_time ? selectedTask.deadline_time.substring(0,5) : '--:--'}</p>
                         </div>
 
-                        {/* Completion Timestamp Box */}
+                        {/* Status Box */}
                         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Status / Timestamp</span>
                            <p className={`text-xs font-black uppercase ${!isCompleted ? 'text-rose-600' : timing.isOverdue ? 'text-rose-600' : 'text-emerald-600'}`}>
@@ -341,17 +346,17 @@ export default function TabCompleted() {
                      {/* Checklist Items Inspection */}
                      <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                           <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Protocol Inspection Log (Completed / Issues / Quantities)</h4>
+                           <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Protocol Inspection Log</h4>
                            {checklistSubmission && (
-                              <span className="text-[9px] font-bold text-slate-500 uppercase">Submitted by: {checklistSubmission.submitted_by_name || completedByStr}</span>
+                              <span className="text-[9px] font-bold text-slate-500 uppercase">Submitted by: {checklistSubmission.submitted_by_name || assignedToStr}</span>
                            )}
                         </div>
 
                         {detailLoading ? (
                            <div className="py-10 text-center italic text-slate-400 text-xs">Loading inspection verification data...</div>
-                        ) : checklistItems.length === 0 ? (
-                           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-center text-slate-500 text-xs italic">
-                              This task board was completed as a direct operational sign-off without a sub-checklist.
+                        ) : !isCompleted || !checklistSubmission ? (
+                           <div className="bg-rose-50/50 border border-rose-200 rounded-2xl p-6 text-center text-rose-700 text-xs font-bold uppercase tracking-wider">
+                              Task was not completed for this date. No protocol submission recorded.
                            </div>
                         ) : (
                            <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
@@ -396,7 +401,7 @@ export default function TabCompleted() {
                                              )}
                                              {!status && (
                                                 <span className="inline-flex items-center px-2.5 py-1 bg-slate-200 text-slate-600 rounded-xl text-[8px] font-black uppercase tracking-wider">
-                                                   Not Verified
+                                                   Not Completed / Unverified
                                                 </span>
                                              )}
                                           </div>
